@@ -306,7 +306,7 @@ class DbSource(Source):
             self,
             *,
             db_url: str,
-            db_schema: str,
+            db_schema: Optional[str] = None,
             db_table: str
     ) -> None:
         """
