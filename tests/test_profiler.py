@@ -8,112 +8,115 @@ import string
 from datetime import datetime, date, time, timedelta
 import math
 import csv
-from sqlalchemy import create_engine, inspect, text
+from sqlalchemy import create_engine, inspect, text, MetaData, Table, Column, String
 
-from splurge_data_profiler.source import DataType, DsvSource
-from splurge_data_profiler.data_lake import DataLakeFactory
+from splurge_data_profiler.source import DataType, DsvSource, DbSource
+from splurge_data_profiler.data_lake import DataLakeFactory, DataLake
 from splurge_data_profiler.profiler import Profiler
 
 
 class TestProfilerComprehensive(unittest.TestCase):
-    """Comprehensive test cases for Profiler with all data types."""
+    """Test comprehensive profiling functionality."""
 
-    def setUp(self) -> None:
-        """Set up test fixtures."""
+    @classmethod
+    def setUpClass(cls) -> None:
+        """Set up test fixtures once for the entire test class."""
         # Create temporary directory for data lake
-        self.temp_dir = tempfile.mkdtemp()
-        self.data_lake_path = Path(self.temp_dir)
+        cls.temp_dir = tempfile.mkdtemp()
+        cls.data_lake_path = Path(cls.temp_dir)
         
         # Create temporary CSV file
-        self.temp_fd, self.temp_path = tempfile.mkstemp(suffix=".csv")
-        self.csv_path = Path(self.temp_path)
+        cls.temp_fd, cls.temp_path = tempfile.mkstemp(suffix=".csv")
+        cls.csv_path = Path(cls.temp_path)
         
-        # Generate comprehensive test data
-        self._generate_comprehensive_csv()
+        # Generate comprehensive test data (reduced from 15000 to 1000 rows)
+        cls._generate_comprehensive_csv()
         
         # Create DsvSource and DataLake
-        self.dsv_source = DsvSource(self.csv_path, delimiter='|', bookend='"')
-        self.data_lake = DataLakeFactory.from_dsv_source(
-            dsv_source=self.dsv_source,
-            data_lake_path=self.data_lake_path
+        cls.dsv_source = DsvSource(cls.csv_path, delimiter='|', bookend='"')
+        cls.data_lake = DataLakeFactory.from_dsv_source(
+            dsv_source=cls.dsv_source,
+            data_lake_path=cls.data_lake_path
         )
-        
-        # Create Profiler
-        self.profiler = Profiler(data_lake=self.data_lake)
 
-    def tearDown(self) -> None:
-        """Clean up test fixtures."""
+    @classmethod
+    def tearDownClass(cls) -> None:
+        """Clean up test fixtures once for the entire test class."""
         # Close and remove temporary CSV file
         try:
-            os.close(self.temp_fd)
-            os.unlink(self.temp_path)
+            os.close(cls.temp_fd)
+            os.unlink(cls.temp_path)
         except (OSError, AttributeError):
             pass
         
         # Remove temporary directory and contents
         try:
             import shutil
-            shutil.rmtree(self.temp_dir)
+            shutil.rmtree(cls.temp_dir)
         except OSError:
             pass
 
-    def _generate_comprehensive_csv(self) -> None:
-        """Generate a comprehensive CSV file with all data types and 15000 rows."""
+    def setUp(self) -> None:
+        """Set up test fixtures for each test method."""
+        # Create a fresh Profiler instance for each test
+        self.profiler = Profiler(data_lake=self.data_lake)
+
+    @classmethod
+    def _generate_comprehensive_csv(cls) -> None:
+        """Generate a comprehensive CSV file with all data types and 1000 rows."""
         column_configs = [
             # TEXT columns
-            ("text_simple", "TEXT", self._generate_text_values),
-            ("text_names", "TEXT", self._generate_name_values),
-            ("text_emails", "TEXT", self._generate_email_values),
-            ("text_addresses", "TEXT", self._generate_address_values),
+            ("text_simple", "TEXT", cls._generate_text_values),
+            ("text_names", "TEXT", cls._generate_name_values),
+            ("text_emails", "TEXT", cls._generate_email_values),
+            ("text_addresses", "TEXT", cls._generate_address_values),
             
             # INTEGER columns
-            ("integer_small", "INTEGER", self._generate_small_integer_values),
-            ("integer_large", "INTEGER", self._generate_large_integer_values),
-            ("integer_negative", "INTEGER", self._generate_negative_integer_values),
-            ("integer_mixed", "INTEGER", self._generate_mixed_integer_values),
+            ("integer_small", "INTEGER", cls._generate_small_integer_values),
+            ("integer_large", "INTEGER", cls._generate_large_integer_values),
+            ("integer_negative", "INTEGER", cls._generate_negative_integer_values),
+            ("integer_mixed", "INTEGER", cls._generate_mixed_integer_values),
             
             # FLOAT columns
-            ("float_simple", "FLOAT", self._generate_simple_float_values),
-            ("float_precise", "FLOAT", self._generate_precise_float_values),
-            ("float_scientific", "FLOAT", self._generate_scientific_float_values),
-            ("float_currency", "FLOAT", self._generate_currency_float_values),
+            ("float_simple", "FLOAT", cls._generate_simple_float_values),
+            ("float_precise", "FLOAT", cls._generate_precise_float_values),
+            ("float_scientific", "FLOAT", cls._generate_scientific_float_values),
+            ("float_currency", "FLOAT", cls._generate_currency_float_values),
             
             # BOOLEAN columns
-            ("boolean_simple", "BOOLEAN", self._generate_boolean_values),
-            ("boolean_text", "BOOLEAN", self._generate_boolean_text_values),
-            ("boolean_mixed", "BOOLEAN", self._generate_mixed_boolean_values),
+            ("boolean_simple", "BOOLEAN", cls._generate_boolean_values),
+            ("boolean_text", "BOOLEAN", cls._generate_boolean_text_values),
+            ("boolean_mixed", "BOOLEAN", cls._generate_mixed_boolean_values),
             
             # DATE columns
-            ("date_simple", "DATE", self._generate_date_values),
-            ("date_formatted", "DATE", self._generate_formatted_date_values),
-            ("date_mixed", "DATE", self._generate_mixed_date_values),
+            ("date_simple", "DATE", cls._generate_date_values),
+            ("date_formatted", "DATE", cls._generate_formatted_date_values),
+            ("date_mixed", "DATE", cls._generate_mixed_date_values),
             
             # TIME columns
-            ("time_simple", "TIME", self._generate_time_values),
-            ("time_formatted", "TIME", self._generate_formatted_time_values),
-            ("time_mixed", "TIME", self._generate_mixed_time_values),
+            ("time_simple", "TIME", cls._generate_time_values),
+            ("time_formatted", "TIME", cls._generate_formatted_time_values),
+            ("time_mixed", "TIME", cls._generate_mixed_time_values),
             
             # DATETIME columns
-            ("datetime_simple", "DATETIME", self._generate_datetime_values),
-            ("datetime_formatted", "DATETIME", self._generate_formatted_datetime_values),
-            ("datetime_mixed", "DATETIME", self._generate_mixed_datetime_values),
+            ("datetime_simple", "DATETIME", cls._generate_datetime_values),
+            ("datetime_formatted", "DATETIME", cls._generate_formatted_datetime_values),
+            ("datetime_mixed", "DATETIME", cls._generate_mixed_datetime_values),
         ]
         header = [config[0] for config in column_configs]
         # Use pipe as delimiter and double quote as bookend
         delimiter = '|'
         bookend = '"'
-        with os.fdopen(self.temp_fd, 'w', encoding='utf-8', newline='') as f:
+        with os.fdopen(cls.temp_fd, 'w', encoding='utf-8', newline='') as f:
             writer = csv.writer(f, delimiter=delimiter, quotechar=bookend, quoting=csv.QUOTE_ALL)
             writer.writerow(header)
-            for i in range(15000):
+            for i in range(1000):
                 row_data = [str(generator_func(i)) for _, _, generator_func in column_configs]
                 writer.writerow(row_data)
-                if i == 0:
-                    print(f"DEBUG: CSV first row data: {row_data}")
-                    print(f"DEBUG: CSV first row header: {header}")
-                    print(f"DEBUG: CSV first row zipped: {list(zip(header, row_data))}")
 
-    def _generate_text_values(self, index: int) -> str:
+
+    @classmethod
+    def _generate_text_values(cls, index: int) -> str:
         """Generate text values."""
         texts = [
             "Lorem ipsum dolor sit amet",
@@ -129,82 +132,99 @@ class TestProfilerComprehensive(unittest.TestCase):
         ]
         return texts[index % len(texts)]
 
-    def _generate_name_values(self, index: int) -> str:
+    @classmethod
+    def _generate_name_values(cls, index: int) -> str:
         """Generate name values."""
         first_names = ["Alice", "Bob", "Charlie", "Diana", "Eve", "Frank", "Grace", "Henry"]
         last_names = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller"]
         return f"{first_names[index % len(first_names)]} {last_names[index % len(last_names)]}"
 
-    def _generate_email_values(self, index: int) -> str:
+    @classmethod
+    def _generate_email_values(cls, index: int) -> str:
         """Generate email values."""
         domains = ["example.com", "test.org", "sample.net", "demo.co.uk"]
         return f"user{index}@{domains[index % len(domains)]}"
 
-    def _generate_address_values(self, index: int) -> str:
+    @classmethod
+    def _generate_address_values(cls, index: int) -> str:
         """Generate address values."""
         streets = ["123 Main St", "456 Oak Ave", "789 Pine Rd", "321 Elm Blvd"]
         cities = ["New York", "Los Angeles", "Chicago", "Houston"]
         return f"{streets[index % len(streets)]}, {cities[index % len(cities)]}"
 
-    def _generate_small_integer_values(self, index: int) -> int:
+    @classmethod
+    def _generate_small_integer_values(cls, index: int) -> int:
         """Generate small integer values."""
         return index % 100
 
-    def _generate_large_integer_values(self, index: int) -> int:
+    @classmethod
+    def _generate_large_integer_values(cls, index: int) -> int:
         """Generate large integer values."""
         return 1000000 + index
 
-    def _generate_negative_integer_values(self, index: int) -> int:
+    @classmethod
+    def _generate_negative_integer_values(cls, index: int) -> int:
         """Generate negative integer values."""
         return -1000 - index
 
-    def _generate_mixed_integer_values(self, index: int) -> int:
+    @classmethod
+    def _generate_mixed_integer_values(cls, index: int) -> int:
         """Generate mixed integer values (including some text)."""
         if index % 20 == 0:  # 5% of values are text
             return f"text_{index}"
         return index * 10
 
-    def _generate_simple_float_values(self, index: int) -> float:
+    @classmethod
+    def _generate_simple_float_values(cls, index: int) -> float:
         """Generate simple float values."""
         return index * 1.5
 
-    def _generate_precise_float_values(self, index: int) -> float:
+    @classmethod
+    def _generate_precise_float_values(cls, index: int) -> float:
         """Generate precise float values."""
         return round(index * 3.14159, 5)
 
-    def _generate_scientific_float_values(self, index: int) -> float:
+    @classmethod
+    def _generate_scientific_float_values(cls, index: int) -> float:
         """Generate scientific notation float values."""
         return index * 1e6
 
-    def _generate_currency_float_values(self, index: int) -> float:
+    @classmethod
+    def _generate_currency_float_values(cls, index: int) -> float:
         """Generate currency-like float values."""
         return round(index * 10.99, 2)
 
-    def _generate_boolean_values(self, index: int) -> bool:
+    @classmethod
+    def _generate_boolean_values(cls, index: int) -> bool:
         """Generate boolean values."""
         return bool(index % 2)
 
-    def _generate_boolean_text_values(self, index: int) -> str:
+    @classmethod
+    def _generate_boolean_text_values(cls, index: int) -> str:
         """Generate boolean text values."""
         return "true" if index % 2 else "false"
 
-    def _generate_mixed_boolean_values(self, index: int) -> str:
+    @classmethod
+    def _generate_mixed_boolean_values(cls, index: int) -> str:
         """Generate mixed boolean values."""
         values = ["true", "false", "yes", "no", "1", "0", "Y", "N"]
         return values[index % len(values)]
 
-    def _generate_date_values(self, index: int) -> date:
+    @classmethod
+    def _generate_date_values(cls, index: int) -> date:
         """Generate date values."""
         start_date = date(2020, 1, 1)
         return start_date + timedelta(days=index)
 
-    def _generate_formatted_date_values(self, index: int) -> str:
+    @classmethod
+    def _generate_formatted_date_values(cls, index: int) -> str:
         """Generate formatted date values."""
         start_date = date(2020, 1, 1)
         date_obj = start_date + timedelta(days=index)
         return date_obj.strftime("%m/%d/%Y")
 
-    def _generate_mixed_date_values(self, index: int) -> str:
+    @classmethod
+    def _generate_mixed_date_values(cls, index: int) -> str:
         """Generate mixed date values."""
         if index % 10 == 0:  # 10% are invalid dates
             return f"invalid_date_{index}"
@@ -212,35 +232,41 @@ class TestProfilerComprehensive(unittest.TestCase):
         date_obj = start_date + timedelta(days=index)
         return date_obj.strftime("%Y-%m-%d")
 
-    def _generate_time_values(self, index: int) -> time:
+    @classmethod
+    def _generate_time_values(cls, index: int) -> time:
         """Generate time values."""
         return time(hour=index % 24, minute=index % 60, second=index % 60)
 
-    def _generate_formatted_time_values(self, index: int) -> str:
+    @classmethod
+    def _generate_formatted_time_values(cls, index: int) -> str:
         """Generate formatted time values."""
         time_obj = time(hour=index % 24, minute=index % 60, second=index % 60)
         return time_obj.strftime("%H:%M:%S")
 
-    def _generate_mixed_time_values(self, index: int) -> str:
+    @classmethod
+    def _generate_mixed_time_values(cls, index: int) -> str:
         """Generate mixed time values."""
         if index % 15 == 0:  # ~6.7% are invalid times
             return f"invalid_time_{index}"
         time_obj = time(hour=index % 24, minute=index % 60, second=index % 60)
         return time_obj.strftime("%I:%M %p")
 
-    def _generate_datetime_values(self, index: int) -> str:
+    @classmethod
+    def _generate_datetime_values(cls, index: int) -> str:
         """Generate datetime values in ISO 8601 format."""
         start_datetime = datetime(2020, 1, 1, 0, 0, 0)
         datetime_obj = start_datetime + timedelta(hours=index)
         return datetime_obj.strftime("%Y-%m-%dT%H:%M:%S")
 
-    def _generate_formatted_datetime_values(self, index: int) -> str:
+    @classmethod
+    def _generate_formatted_datetime_values(cls, index: int) -> str:
         """Generate formatted datetime values in ISO 8601 format."""
         start_datetime = datetime(2020, 1, 1, 0, 0, 0)
         datetime_obj = start_datetime + timedelta(hours=index)
         return datetime_obj.strftime("%Y-%m-%dT%H:%M:%S")
 
-    def _generate_mixed_datetime_values(self, index: int) -> str:
+    @classmethod
+    def _generate_mixed_datetime_values(cls, index: int) -> str:
         """Generate mixed datetime values."""
         if index % 25 == 0:  # 4% are invalid datetimes
             return f"invalid_datetime_{index}"
@@ -258,18 +284,47 @@ class TestProfilerComprehensive(unittest.TestCase):
             self.assertEqual(column.name, self.dsv_source.columns[i].name)
             self.assertIsNot(column, self.dsv_source.columns[i])
 
+    def test_profiler_string_representation(self) -> None:
+        """Test Profiler string representation."""
+        expected_str = f"Profiler(data_lake={self.data_lake}, profiled_columns={len(self.profiler.profiled_columns)})"
+        self.assertEqual(str(self.profiler), expected_str)
+
+    def test_profiler_repr_representation(self) -> None:
+        """Test Profiler repr representation."""
+        repr_str = repr(self.profiler)
+        self.assertIn("Profiler", repr_str)
+        self.assertIn("data_lake=", repr_str)
+        self.assertIn("profiled_columns=", repr_str)
+
+    def test_profiler_equality(self) -> None:
+        """Test Profiler equality comparison."""
+        profiler1 = Profiler(data_lake=self.data_lake)
+        profiler2 = Profiler(data_lake=self.data_lake)
+        
+        # They should be equal since they have the same data lake
+        self.assertEqual(profiler1, profiler2)
+        
+        # Create a different data lake by modifying the profiled columns
+        profiler1.profile(sample_size=100)  # This modifies the profiled columns
+        profiler3 = Profiler(data_lake=self.data_lake)  # Fresh profiler with same data lake
+        
+        # They should not be equal since profiler1 has profiled columns and profiler3 doesn't
+        self.assertNotEqual(profiler1, profiler3)
+
+    def test_profiler_equality_different_type(self) -> None:
+        """Test Profiler equality with different type."""
+        other = "not a profiler"
+        self.assertNotEqual(self.profiler, other)
+
     def test_profiler_comprehensive_profiling(self) -> None:
         """Test comprehensive profiling with all data types."""
-        # Run profiling
-        self.profiler.profile(sample_size=5000)
+        # Run profiling (reduced sample size for performance)
+        self.profiler.profile(sample_size=500)
         
         # Get profiled columns
         profiled_columns = self.profiler.profiled_columns
         
-        # Debug output
-        print(f"Expected columns: 24")
-        print(f"Actual columns: {len(profiled_columns)}")
-        print(f"Column names: {[col.name for col in profiled_columns]}")
+
         
         # Verify that all columns were profiled
         self.assertEqual(len(profiled_columns), 24)  # 24 columns total
@@ -324,34 +379,32 @@ class TestProfilerComprehensive(unittest.TestCase):
                     f"Column {column.name} should be {expected_types[column.name]} but got {column.inferred_type}"
                 )
 
-        # Print all inferred types for debugging
-        for column in profiled_columns:
-            print(f"Column: {column.name}, Inferred Type: {column.inferred_type}")
+
 
     def test_profiler_sample_size_effectiveness(self) -> None:
         """Test that different sample sizes produce consistent results."""
-        # Profile with different sample sizes
+        # Profile with different sample sizes (reduced for performance)
+        self.profiler.profile(sample_size=100)
+        results_100 = [col.inferred_type for col in self.profiler.profiled_columns]
+        
+        self.profiler.profile(sample_size=500)
+        results_500 = [col.inferred_type for col in self.profiler.profiled_columns]
+        
         self.profiler.profile(sample_size=1000)
         results_1000 = [col.inferred_type for col in self.profiler.profiled_columns]
         
-        self.profiler.profile(sample_size=5000)
-        results_5000 = [col.inferred_type for col in self.profiler.profiled_columns]
-        
-        self.profiler.profile(sample_size=10000)
-        results_10000 = [col.inferred_type for col in self.profiler.profiled_columns]
-        
         # Results should be consistent across sample sizes for well-defined data types
         # (Allow some variation for mixed columns)
-        for i, (col_1000, col_5000, col_10000) in enumerate(zip(results_1000, results_5000, results_10000)):
+        for i, (col_100, col_500, col_1000) in enumerate(zip(results_100, results_500, results_1000)):
             column_name = self.profiler.profiled_columns[i].name
             if "mixed" not in column_name:  # Skip mixed columns
                 self.assertEqual(
-                    col_1000, col_5000,
-                    f"Sample size 1000 vs 5000 inconsistent for {column_name}"
+                    col_100, col_500,
+                    f"Sample size 100 vs 500 inconsistent for {column_name}"
                 )
                 self.assertEqual(
-                    col_5000, col_10000,
-                    f"Sample size 5000 vs 10000 inconsistent for {column_name}"
+                    col_500, col_1000,
+                    f"Sample size 500 vs 1000 inconsistent for {column_name}"
                 )
 
     def test_profiler_original_data_unmodified(self) -> None:
@@ -359,8 +412,8 @@ class TestProfilerComprehensive(unittest.TestCase):
         # Store original inferred types
         original_types = [col.inferred_type for col in self.data_lake.db_source.columns]
         
-        # Run profiling
-        self.profiler.profile(sample_size=5000)
+        # Run profiling (reduced sample size for performance)
+        self.profiler.profile(sample_size=500)
         
         # Check that original types are unchanged
         current_types = [col.inferred_type for col in self.data_lake.db_source.columns]
@@ -374,15 +427,15 @@ class TestProfilerComprehensive(unittest.TestCase):
         """Test profiling performance with large dataset."""
         import time
         
-        # Time the profiling operation
+        # Time the profiling operation (reduced sample size for performance)
         start_time = time.time()
-        self.profiler.profile(sample_size=10000)
+        self.profiler.profile(sample_size=1000)
         end_time = time.time()
         
         profiling_time = end_time - start_time
         
-        # Profiling should complete within reasonable time (adjust threshold as needed)
-        self.assertLess(profiling_time, 60.0, f"Profiling took {profiling_time:.2f} seconds, should be under 60 seconds")
+        # Profiling should complete within reasonable time (reduced threshold)
+        self.assertLess(profiling_time, 30.0, f"Profiling took {profiling_time:.2f} seconds, should be under 30 seconds")
         
         # Verify results were obtained
         profiled_columns = self.profiler.profiled_columns
@@ -407,8 +460,8 @@ class TestProfilerComprehensive(unittest.TestCase):
 
     def test_profiler_create_inferred_table(self) -> None:
         """Test creating inferred table with cast columns."""
-        # First profile the data
-        self.profiler.profile(sample_size=1000)
+        # First profile the data (reduced sample size for performance)
+        self.profiler.profile(sample_size=500)
         
         # Add a short delay and force engine disposal to avoid SQLite locking
         import time
@@ -454,7 +507,7 @@ class TestProfilerComprehensive(unittest.TestCase):
                 # Verify data was populated
                 result = connection.execute(text(f"SELECT COUNT(*) FROM {new_table_name}"))
                 row_count = result.fetchone()[0]
-                self.assertEqual(row_count, 15000, "Table should have 15000 rows")
+                self.assertEqual(row_count, 1000, "Table should have 1000 rows")
                 
                 # Test specific casting examples
                 self._verify_casting_examples(connection, new_table_name)
@@ -535,6 +588,287 @@ class TestProfilerComprehensive(unittest.TestCase):
             original, cast_value = row
             if original:
                 self.assertEqual(original, cast_value)
+
+    def test_profiler_empty_table(self):
+        """Test profiling on an empty table."""
+        # Create a new empty table in a separate database
+        temp_db_path = tempfile.mktemp(suffix=".sqlite")
+        db_url = f"sqlite:///{temp_db_path}"
+        engine = create_engine(db_url)
+        empty_table_name = "empty_table"
+        metadata = MetaData()
+        table = Table(
+            empty_table_name, metadata,
+            Column("id", String, primary_key=True),
+        )
+        metadata.create_all(engine)
+        engine.dispose()
+        
+        try:
+            # Create a DataLake for the empty table
+            db_source = DbSource(
+                db_url=db_url,
+                db_schema=None,
+                db_table=empty_table_name
+            )
+            data_lake = DataLake(db_source=db_source)
+            profiler = Profiler(data_lake=data_lake)
+            # Should not raise, but profiled_columns should be empty or TEXT
+            profiler.profile(sample_size=10)
+            for col in profiler.profiled_columns:
+                self.assertEqual(col.inferred_type, DataType.TEXT)
+        finally:
+            # Clean up temporary database
+            try:
+                os.remove(temp_db_path)
+            except OSError:
+                pass
+
+    def test_profiler_all_nulls(self):
+        """Test profiling on a table with only nulls."""
+        # Create a new table in a separate database
+        temp_db_path = tempfile.mktemp(suffix=".sqlite")
+        db_url = f"sqlite:///{temp_db_path}"
+        engine = create_engine(db_url)
+        null_table_name = "null_table"
+        metadata = MetaData()
+        table = Table(
+            null_table_name, metadata,
+            Column("id", String, primary_key=True),
+            Column("value", String, nullable=True),
+        )
+        metadata.create_all(engine)
+        with engine.connect() as conn:
+            conn.execute(table.insert(), [{"id": "1", "value": None}, {"id": "2", "value": None}])
+            conn.commit()
+        engine.dispose()
+        
+        try:
+            db_source = DbSource(
+                db_url=db_url,
+                db_schema=None,
+                db_table=null_table_name
+            )
+            data_lake = DataLake(db_source=db_source)
+            profiler = Profiler(data_lake=data_lake)
+            profiler.profile(sample_size=10)
+            
+            # Check that we have the expected columns
+            self.assertEqual(len(profiler.profiled_columns), 2)
+            
+            # Find the value column (which should be all nulls and infer as TEXT)
+            value_col = next(col for col in profiler.profiled_columns if col.name == "value")
+            self.assertEqual(value_col.inferred_type, DataType.TEXT)
+            
+            # The id column should be inferred as INTEGER since it contains numeric strings
+            id_col = next(col for col in profiler.profiled_columns if col.name == "id")
+            self.assertEqual(id_col.inferred_type, DataType.INTEGER)
+        finally:
+            # Clean up temporary database
+            try:
+                os.remove(temp_db_path)
+            except OSError:
+                pass
+
+    def test_profiler_mixed_types(self):
+        """Test profiling on a table with mixed types."""
+        # Create a new table in a separate database
+        temp_db_path = tempfile.mktemp(suffix=".sqlite")
+        db_url = f"sqlite:///{temp_db_path}"
+        engine = create_engine(db_url)
+        mixed_table_name = "mixed_table"
+        metadata = MetaData()
+        table = Table(
+            mixed_table_name, metadata,
+            Column("id", String, primary_key=True),
+            Column("value", String, nullable=True),
+        )
+        metadata.create_all(engine)
+        with engine.connect() as conn:
+            conn.execute(table.insert(), [
+                {"id": "1", "value": "123"},
+                {"id": "2", "value": "abc"},
+                {"id": "3", "value": "456.7"},
+                {"id": "4", "value": "True"},
+            ])
+            conn.commit()
+        engine.dispose()
+        
+        try:
+            db_source = DbSource(
+                db_url=db_url,
+                db_schema=None,
+                db_table=mixed_table_name
+            )
+            data_lake = DataLake(db_source=db_source)
+            profiler = Profiler(data_lake=data_lake)
+            profiler.profile(sample_size=10)
+            
+            # Check that we have the expected columns
+            self.assertEqual(len(profiler.profiled_columns), 2)
+            
+            # The value column should be inferred as TEXT since it contains mixed types
+            value_col = next(col for col in profiler.profiled_columns if col.name == "value")
+            self.assertEqual(value_col.inferred_type, DataType.TEXT)
+            
+            # The id column should be inferred as INTEGER since it contains numeric strings
+            id_col = next(col for col in profiler.profiled_columns if col.name == "id")
+            self.assertEqual(id_col.inferred_type, DataType.INTEGER)
+        finally:
+            # Clean up temporary database
+            try:
+                os.remove(temp_db_path)
+            except OSError:
+                pass
+
+    def test_profiler_db_connection_error(self):
+        """Test profiler error on DB connection failure."""
+        with self.assertRaises(RuntimeError):
+            db_source = DbSource(
+                db_url="sqlite:///nonexistent.db",
+                db_schema=None,
+                db_table="no_table"
+            )
+
+
+class TestProfilerEdgeCases(unittest.TestCase):
+    """Test edge cases and error conditions for Profiler."""
+
+    def test_profiler_with_none_data_lake(self):
+        """Test profiler initialization with None data lake."""
+        with self.assertRaises(ValueError):
+            Profiler(data_lake=None)
+
+    def test_profiler_reprofile_same_data(self):
+        """Test that reprofiling the same data produces consistent results."""
+        # Create a simple test setup
+        temp_dir = tempfile.mkdtemp()
+        temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
+        
+        try:
+            # Create simple test data
+            with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
+                f.write("id,name,value\n1,Alice,10.5\n2,Bob,20.0\n")
+            
+            dsv_source = DsvSource(temp_path)
+            data_lake = DataLakeFactory.from_dsv_source(
+                dsv_source=dsv_source,
+                data_lake_path=Path(temp_dir)
+            )
+            
+            profiler = Profiler(data_lake=data_lake)
+            
+            # Profile first time (reduced sample size for performance)
+            profiler.profile(sample_size=5)
+            first_results = {col.name: col.inferred_type for col in profiler.profiled_columns}
+            
+            # Profile second time (reduced sample size for performance)
+            profiler.profile(sample_size=5)
+            second_results = {col.name: col.inferred_type for col in profiler.profiled_columns}
+            
+            # Results should be identical
+            self.assertEqual(first_results, second_results)
+            
+        finally:
+            # Robust cleanup with exception handling
+            try:
+                os.close(temp_fd)
+            except OSError:
+                pass  # File descriptor already closed
+            try:
+                os.unlink(temp_path)
+            except OSError:
+                pass  # File may not exist or be locked
+            try:
+                import shutil
+                shutil.rmtree(temp_dir)
+            except OSError:
+                pass  # Directory may not exist or be locked
+
+    def test_profiler_large_sample_size(self):
+        """Test profiler with sample size larger than available data."""
+        temp_dir = tempfile.mkdtemp()
+        temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
+        
+        try:
+            # Create small test data (only 5 rows)
+            with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
+                f.write("id,name\n1,Alice\n2,Bob\n3,Charlie\n4,Diana\n5,Eve\n")
+            
+            dsv_source = DsvSource(temp_path)
+            data_lake = DataLakeFactory.from_dsv_source(
+                dsv_source=dsv_source,
+                data_lake_path=Path(temp_dir)
+            )
+            
+            profiler = Profiler(data_lake=data_lake)
+            
+            # Try to profile with sample size larger than available data
+            profiler.profile(sample_size=100)  # More than 5 rows
+            
+            # Should still work and profile all available data
+            self.assertGreater(len(profiler.profiled_columns), 0)
+            
+        finally:
+            # Robust cleanup with exception handling
+            try:
+                os.close(temp_fd)
+            except OSError:
+                pass  # File descriptor already closed
+            try:
+                os.unlink(temp_path)
+            except OSError:
+                pass  # File may not exist or be locked
+            try:
+                import shutil
+                shutil.rmtree(temp_dir)
+            except OSError:
+                pass  # Directory may not exist or be locked
+
+    def test_profiler_properties(self):
+        """Test profiler properties."""
+        temp_dir = tempfile.mkdtemp()
+        temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
+        
+        try:
+            # Create test data
+            with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
+                f.write("id,name\n1,Alice\n2,Bob\n")
+            
+            dsv_source = DsvSource(temp_path)
+            data_lake = DataLakeFactory.from_dsv_source(
+                dsv_source=dsv_source,
+                data_lake_path=Path(temp_dir)
+            )
+            
+            profiler = Profiler(data_lake=data_lake)
+            
+            # Test properties before profiling
+            self.assertEqual(profiler.data_lake, data_lake)
+            self.assertEqual(len(profiler.profiled_columns), 2)  # Always has columns with default TEXT type
+            
+            # Profile the data (reduced sample size for performance)
+            profiler.profile(sample_size=5)
+            
+            # Test properties after profiling
+            self.assertEqual(profiler.data_lake, data_lake)
+            self.assertGreater(len(profiler.profiled_columns), 0)
+            
+        finally:
+            # Robust cleanup with exception handling
+            try:
+                os.close(temp_fd)
+            except OSError:
+                pass  # File descriptor already closed
+            try:
+                os.unlink(temp_path)
+            except OSError:
+                pass  # File may not exist or be locked
+            try:
+                import shutil
+                shutil.rmtree(temp_dir)
+            except OSError:
+                pass  # Directory may not exist or be locked
 
 
 if __name__ == '__main__':

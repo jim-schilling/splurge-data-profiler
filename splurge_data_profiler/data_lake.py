@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Union, List
+from typing import Union, List, Any
 from os import PathLike
 
 from sqlalchemy import create_engine, MetaData, Table, Column as SAColumn, String, insert
@@ -47,6 +47,23 @@ class DataLake:
     def db_table(self) -> str:
         """Get the database table name."""
         return self._db_table
+    
+    def __str__(self) -> str:
+        return f"DataLake(db_url={self._db_url}, schema={self._db_schema}, table={self._db_table}, columns={len(self._column_names)})"
+    
+    def __repr__(self) -> str:
+        return f"DataLake(db_url={self._db_url}, schema={self._db_schema}, table={self._db_table}, columns={self._column_names})"
+    
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, DataLake):
+            return False
+        return (
+            self._db_source == other._db_source and
+            self._column_names == other._column_names and
+            self._db_url == other._db_url and
+            self._db_schema == other._db_schema and
+            self._db_table == other._db_table
+        )
 
 
 class DataLakeFactory:
@@ -117,11 +134,10 @@ class DataLakeFactory:
                 if row_data == column_names:
                     continue
                 # Ensure all columns are present, treat missing and empty string as None
-                row_dict = {
-                    col: (val if val not in (None, "") else None)
-                    for col in column_names
-                    for val in [row_data.get(col, None)]
-                }
+                row_dict = {}
+                for col in column_names:
+                    val = row_data.get(col, None)
+                    row_dict[col] = val if val not in (None, "") else None
                 batch_data.append(row_dict)
                 
                 # Insert batch when it reaches the batch size

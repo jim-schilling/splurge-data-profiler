@@ -25,6 +25,7 @@ alwaysApply: true
 - Except clauses shall be prefixed with a blank line. 
 - Prefer separating logical blocks of code with a blank line for visual clarity.
 - Prefer clarity, efficiency, and best practices in code.
+- Remove unused imports.
 - Use descriptive variable names with auxiliary verbs (e.g. is_active, has_permission).
 - Prefer iteration and modularization over code duplication.
 - For Object definitions/declarations (e.g. class, enum, dataclass), names with acronymns or abbreviations (e.g. DSVReader, CSVWriter, TransformXMLToJSON), shall be Pascal case like DsvReader, CsvWriter, TransformXmlToJson.

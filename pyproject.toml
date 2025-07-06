@@ -2,30 +2,138 @@
 name = "splurge-data-profiler"
 version = "0.1.0"
 description = "A data profiling tool for delimited and database sources."
+readme = "README.md"
+license = "MIT"
 authors = [
     { name = "Jim Schilling" }
 ]
-license = "MIT"
-readme = "README.md"
-requires-python = ">=3.10"
-classifiers = [
-    "Programming Language :: Python :: 3",
-    "Operating System :: OS Independent",
+maintainers = [
+    { name = "Jim Schilling" }
 ]
+keywords = [
+    "data-profiling",
+    "csv",
+    "tsv",
+    "dsv",
+    "data-lake",
+    "sqlite",
+    "type-inference",
+    "data-analysis",
+    "etl",
+    "data-processing"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Data Scientists",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Database",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Text Processing :: Filters",
+]
+requires-python = ">=3.10"
 dependencies = [
     "sqlalchemy>=2.0.37",
     "splurge-tools==0.2.4",
 ]
+
+[project.urls]
+Homepage = "https://github.com/jim-schilling/splurge-data-profiler"
+Documentation = "https://github.com/jim-schilling/splurge-data-profiler#readme"
+Repository = "https://github.com/jim-schilling/splurge-data-profiler.git"
+Issues = "https://github.com/jim-schilling/splurge-data-profiler/issues"
+Changelog = "https://github.com/jim-schilling/splurge-data-profiler/blob/main/CHANGELOG.md"
 
 [project.scripts]
 splurge-profiler = "splurge_data_profiler.cli:main"
 
 [project.optional-dependencies]
 test = [
-    "pytest",
-    "pytest-cov",
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "flake8>=6.0.0",
+    "mypy>=1.0.0",
 ]
 
+
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["splurge_data_profiler*"]
+
+[tool.setuptools.package-data]
+splurge_data_profiler = ["*.json", "*.yaml", "*.yml"]
+
+[tool.black]
+line-length = 120
+target-version = ['py310']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 120
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+ensure_newline_before_comments = true
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--cov=splurge_data_profiler",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+    "--cov-report=xml",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+]

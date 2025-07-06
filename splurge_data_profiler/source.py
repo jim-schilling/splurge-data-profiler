@@ -392,6 +392,12 @@ class DbSource(Source):
         except SQLAlchemyError as exc:
             raise RuntimeError(f"Failed to initialize columns from database: {exc}")
 
+    def __str__(self) -> str:
+        return f"DbSource(db_url={self._db_url}, schema={self._db_schema}, table={self._db_table}, columns={len(self._columns)})"
+    
+    def __repr__(self) -> str:
+        return f"DbSource(db_url={self._db_url}, schema={self._db_schema}, table={self._db_table}, columns={self._columns})"
+    
     def __eq__(self, other: Any) -> bool:
         if not isinstance(other, DbSource):
             return False

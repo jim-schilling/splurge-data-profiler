@@ -19,6 +19,8 @@ class Profiler:
             *,
             data_lake: DataLake
     ) -> None:
+        if data_lake is None:
+            raise ValueError("data_lake cannot be None")
         self._data_lake = data_lake
         # Create a private copy of the DbSource columns
         self._profiled_columns = copy.deepcopy(data_lake.db_source.columns)
@@ -85,8 +87,6 @@ class Profiler:
                     total_rows = result.fetchone()[0]
                 
                 sample_size = self._calculate_adaptive_sample_size(total_rows=total_rows)
-                percentage = sample_size / total_rows * 100
-                print(f"Adaptive sampling: {sample_size:,} rows ({percentage:.1f}% of {total_rows:,} total rows)")
             
             # Profile each column
             for column in self._profiled_columns:
@@ -187,6 +187,11 @@ class Profiler:
     def profiled_columns(self) -> List[Column]:
         """Get the profiled columns with updated inferred types."""
         return self._profiled_columns.copy()
+    
+    @property
+    def data_lake(self) -> DataLake:
+        """Get the data lake instance."""
+        return self._data_lake
 
     def create_inferred_table(
             self,
@@ -208,8 +213,9 @@ class Profiler:
             Name of the created table
             
         Raises:
-            RuntimeError: If table creation or data population fails
-        """
+            RuntimeError: If profiling has not been performed or if table creation fails
+        """       
+        
         try:
             # Create database engine
             engine = create_engine(self._data_lake.db_url)
@@ -459,4 +465,17 @@ class Profiler:
             insert_stmt = insert(table)
             result = connection.execute(insert_stmt, batch_data)
             connection.commit()
-        
+    
+    def __str__(self) -> str:
+        return f"Profiler(data_lake={self._data_lake}, profiled_columns={len(self._profiled_columns)})"
+    
+    def __repr__(self) -> str:
+        return f"Profiler(data_lake={self._data_lake}, profiled_columns={self._profiled_columns})"
+    
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, Profiler):
+            return False
+        return (
+            self._data_lake == other._data_lake and
+            self._profiled_columns == other._profiled_columns
+        )

@@ -301,6 +301,12 @@ class TestDbSource(unittest.TestCase):
             SAColumn("id", String, primary_key=True),
             SAColumn("name", String, nullable=True),
         )
+        # Create a second table for equality testing
+        self.different_table = Table(
+            "different_table", metadata,
+            SAColumn("id", String, primary_key=True),
+            SAColumn("description", String, nullable=True),
+        )
         metadata.create_all(self.engine)
 
     def tearDown(self) -> None:
@@ -364,8 +370,8 @@ class TestDbSource(unittest.TestCase):
                 db_table="test_table"
             )
             
-            # Since DbSource doesn't override __str__, it uses the parent class
-            expected_str = f"Source(columns=[Column(name=id, inferred_type=DataType.TEXT, raw_type=DataType.TEXT, is_nullable=False)])"
+            # Test the new DbSource __str__ method
+            expected_str = f"DbSource(db_url={db_url}, schema=None, table=test_table, columns=1)"
             self.assertEqual(str(source), expected_str)
             
         finally:
@@ -380,6 +386,55 @@ class TestDbSource(unittest.TestCase):
             except PermissionError:
                 # File might still be in use, that's okay for tests
                 pass
+
+    def test_db_source_equality(self) -> None:
+        """Test DbSource equality comparison."""
+        source1 = DbSource(
+            db_url=self.db_url,
+            db_schema=self.db_schema,
+            db_table=self.db_table
+        )
+        source2 = DbSource(
+            db_url=self.db_url,
+            db_schema=self.db_schema,
+            db_table=self.db_table
+        )
+        
+        # Create a different source with different table name but same database
+        source3 = DbSource(
+            db_url=self.db_url,
+            db_schema=self.db_schema,
+            db_table="different_table"
+        )
+        
+        self.assertEqual(source1, source2)
+        self.assertNotEqual(source1, source3)
+
+    def test_db_source_equality_different_type(self) -> None:
+        """Test DbSource equality with different type."""
+        source = DbSource(
+            db_url=self.db_url,
+            db_schema=self.db_schema,
+            db_table=self.db_table
+        )
+        other = "not a db source"
+        
+        self.assertNotEqual(source, other)
+
+    def test_db_source_repr_representation(self) -> None:
+        """Test DbSource repr representation."""
+        source = DbSource(
+            db_url=self.db_url,
+            db_schema=self.db_schema,
+            db_table=self.db_table
+        )
+        
+        # Test that repr shows detailed information
+        repr_str = repr(source)
+        self.assertIn("DbSource", repr_str)
+        self.assertIn(self.db_url, repr_str)
+        self.assertIn(self.db_table, repr_str)
+        self.assertIn("columns=", repr_str)
 
 
 class TestDsvSourceIntegration(unittest.TestCase):
@@ -809,6 +864,9 @@ class TestDataLakeFactoryStreaming(unittest.TestCase):
                 os.remove(malformed_path)
             except:
                 pass
+
+
+
 
 
 class TestDataLakeFactory(unittest.TestCase):
