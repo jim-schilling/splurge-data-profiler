@@ -1,0 +1,31 @@
+[project]
+name = "splurge-data-profiler"
+version = "0.1.0"
+description = "A data profiling tool for delimited and database sources."
+authors = [
+    { name = "Jim Schilling" }
+]
+license = "MIT"
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "sqlalchemy>=2.0.37",
+    "splurge-tools==0.2.4",
+]
+
+[project.scripts]
+splurge-profiler = "splurge_data_profiler.cli:main"
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "pytest-cov",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
