@@ -825,6 +825,169 @@ class TestProfilerEdgeCases(unittest.TestCase):
             except OSError:
                 pass  # Directory may not exist or be locked
 
+    def test_calculate_adaptive_sample_size(self):
+        """
+        Test the _calculate_adaptive_sample_size method directly to validate all assumptions.
+        
+        Tests all the adaptive sampling strategy boundaries and calculations:
+        - Datasets < 25K rows: 100% sample
+        - Datasets 25K-50K rows: 50% sample
+        - Datasets 50K-100K rows: 25% sample  
+        - Datasets 100K-500K rows: 20% sample
+        - Datasets > 500K rows: 10% sample
+        """
+        # Create a minimal profiler instance for testing
+        temp_dir = tempfile.mkdtemp()
+        temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
+        
+        try:
+            # Create minimal test data
+            with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
+                f.write("id,name\n1,Alice\n2,Bob\n")
+            
+            dsv_source = DsvSource(temp_path)
+            data_lake = DataLakeFactory.from_dsv_source(
+                dsv_source=dsv_source,
+                data_lake_path=Path(temp_dir)
+            )
+            
+            profiler = Profiler(data_lake=data_lake)
+            
+            # Test datasets < 25K rows (100% sample)
+            test_cases_small = [
+                (0, 0),
+                (1, 1),
+                (1000, 1000),
+                (10000, 10000),
+                (24999, 24999),
+            ]
+            
+            for total_rows, expected_sample in test_cases_small:
+                with self.subTest(total_rows=total_rows):
+                    sample_size = profiler._calculate_adaptive_sample_size(total_rows=total_rows)
+                    self.assertEqual(sample_size, expected_sample, 
+                                   f"Expected {expected_sample} for {total_rows} rows, got {sample_size}")
+            
+            # Test datasets 25K-50K rows (50% sample)
+            test_cases_medium = [
+                (25000, 12500),
+                (30000, 15000),
+                (40000, 20000),
+                (49999, 24999),
+            ]
+            
+            for total_rows, expected_sample in test_cases_medium:
+                with self.subTest(total_rows=total_rows):
+                    sample_size = profiler._calculate_adaptive_sample_size(total_rows=total_rows)
+                    self.assertEqual(sample_size, expected_sample,
+                                   f"Expected {expected_sample} for {total_rows} rows, got {sample_size}")
+            
+            # Test datasets 50K-100K rows (25% sample)
+            test_cases_large = [
+                (50000, 12500),
+                (60000, 15000),
+                (80000, 20000),
+                (99999, 24999),
+            ]
+            
+            for total_rows, expected_sample in test_cases_large:
+                with self.subTest(total_rows=total_rows):
+                    sample_size = profiler._calculate_adaptive_sample_size(total_rows=total_rows)
+                    self.assertEqual(sample_size, expected_sample,
+                                   f"Expected {expected_sample} for {total_rows} rows, got {sample_size}")
+            
+            # Test datasets 100K-500K rows (20% sample)
+            test_cases_xlarge = [
+                (100000, 20000),
+                (200000, 40000),
+                (300000, 60000),
+                (499999, 99999),
+            ]
+            
+            for total_rows, expected_sample in test_cases_xlarge:
+                with self.subTest(total_rows=total_rows):
+                    sample_size = profiler._calculate_adaptive_sample_size(total_rows=total_rows)
+                    self.assertEqual(sample_size, expected_sample,
+                                   f"Expected {expected_sample} for {total_rows} rows, got {sample_size}")
+            
+            # Test datasets > 500K rows (10% sample)
+            test_cases_huge = [
+                (500000, 50000),
+                (1000000, 100000),
+                (5000000, 500000),
+                (10000000, 1000000),
+            ]
+            
+            for total_rows, expected_sample in test_cases_huge:
+                with self.subTest(total_rows=total_rows):
+                    sample_size = profiler._calculate_adaptive_sample_size(total_rows=total_rows)
+                    self.assertEqual(sample_size, expected_sample,
+                                   f"Expected {expected_sample} for {total_rows} rows, got {sample_size}")
+            
+            # Test boundary conditions and edge cases
+            boundary_tests = [
+                # Test exact boundaries
+                (25000, 12500),  # Exactly at 25K boundary
+                (50000, 12500),  # Exactly at 50K boundary
+                (100000, 20000), # Exactly at 100K boundary
+                (500000, 50000), # Exactly at 500K boundary
+                
+                # Test one row before boundaries
+                (24999, 24999),  # One row before 25K boundary
+                (49999, 24999),  # One row before 50K boundary
+                (99999, 24999),  # One row before 100K boundary
+                (499999, 99999), # One row before 500K boundary
+                
+                # Test one row after boundaries
+                (25001, 12500),  # One row after 25K boundary
+                (50001, 12500),  # One row after 50K boundary (25% of 50001 = 12500)
+                (100001, 20000), # One row after 100K boundary
+                (500001, 50000), # One row after 500K boundary
+            ]
+            
+            for total_rows, expected_sample in boundary_tests:
+                with self.subTest(total_rows=total_rows, boundary_test=True):
+                    sample_size = profiler._calculate_adaptive_sample_size(total_rows=total_rows)
+                    self.assertEqual(sample_size, expected_sample,
+                                   f"Expected {expected_sample} for {total_rows} rows, got {sample_size}")
+            
+            # Test that sample size never exceeds total rows
+            for total_rows in [1000, 25000, 50000, 100000, 500000, 1000000]:
+                with self.subTest(total_rows=total_rows, max_check=True):
+                    sample_size = profiler._calculate_adaptive_sample_size(total_rows=total_rows)
+                    self.assertLessEqual(sample_size, total_rows,
+                                       f"Sample size {sample_size} should not exceed total rows {total_rows}")
+            
+            # Test that sample size is always non-negative
+            for total_rows in [0, 1, 1000, 25000, 50000, 100000, 500000, 1000000]:
+                with self.subTest(total_rows=total_rows, non_negative_check=True):
+                    sample_size = profiler._calculate_adaptive_sample_size(total_rows=total_rows)
+                    self.assertGreaterEqual(sample_size, 0,
+                                          f"Sample size {sample_size} should be non-negative for {total_rows} rows")
+            
+            # Test that sample size is always an integer
+            for total_rows in [1000, 25000, 50000, 100000, 500000, 1000000]:
+                with self.subTest(total_rows=total_rows, integer_check=True):
+                    sample_size = profiler._calculate_adaptive_sample_size(total_rows=total_rows)
+                    self.assertIsInstance(sample_size, int,
+                                        f"Sample size {sample_size} should be an integer for {total_rows} rows")
+            
+        finally:
+            # Robust cleanup with exception handling
+            try:
+                os.close(temp_fd)
+            except OSError:
+                pass  # File descriptor already closed
+            try:
+                os.unlink(temp_path)
+            except OSError:
+                pass  # File may not exist or be locked
+            try:
+                import shutil
+                shutil.rmtree(temp_dir)
+            except OSError:
+                pass  # Directory may not exist or be locked
+
     def test_profiler_properties(self):
         """Test profiler properties."""
         temp_dir = tempfile.mkdtemp()
