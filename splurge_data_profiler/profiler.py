@@ -100,8 +100,10 @@ class Profiler:
             
         except SQLAlchemyError as exc:
             raise RuntimeError(f"Database profiling failed: {exc}")
-        except Exception as exc:
+        except (ValueError, TypeError, AttributeError) as exc:
             raise RuntimeError(f"Profiling failed: {exc}")
+        except Exception as exc:
+            raise RuntimeError(f"Unexpected error during profiling: {exc}")
 
     def _profile_column(
             self,
@@ -274,6 +276,8 @@ class Profiler:
             
         except SQLAlchemyError as exc:
             raise RuntimeError(f"Failed to create inferred table: {exc}")
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise RuntimeError(f"Error creating inferred table: {exc}")
         except Exception as exc:
             raise RuntimeError(f"Unexpected error creating inferred table: {exc}")
 

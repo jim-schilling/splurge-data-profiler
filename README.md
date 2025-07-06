@@ -165,10 +165,11 @@ The profiler can infer the following data types:
 
 When no sample size is specified, the profiler uses adaptive sampling:
 
-- Datasets < 50K rows: 50% sample
+- Datasets < 25K rows: 100% sample
+- Datasets 25K-50K rows: 50% sample
 - Datasets 50K-100K rows: 25% sample
 - Datasets 100K-500K rows: 20% sample
-- Datasets > 500K rows: 15% sample
+- Datasets > 500K rows: 10% sample
 
 ## Programmatic Usage
 
@@ -224,5 +225,5 @@ MIT License
 - **Inferred table creation** with both original and type-cast columns
 - **JSON configuration** for DSV parsing options
 - **ISO 8601 datetime support** for proper type inference
-- **Adaptive sampling** based on dataset size (50% for <50K rows, 25% for 50K-100K, 20% for 100K-500K, 15% for >500K)
+- **Adaptive sampling** based on dataset size (100% for <25K rows, 50% for 25K-50K, 25% for 50K-100K, 20% for 100K-500K, 10% for >500K)
 - **Simplified workflow** - always profiles and always creates inferred tables

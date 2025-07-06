@@ -455,8 +455,10 @@ class TestDsvSourceIntegration(unittest.TestCase):
         source = DsvSource(self.file_path)
         try:
             columns = source._initialize()
-        except Exception as exc:
+        except (ValueError, RuntimeError) as exc:
             raise
+        except Exception as exc:
+            raise RuntimeError(f"Unexpected error in test: {exc}")
         self.assertTrue(len(columns) >= 2)
         self.assertEqual(columns[0].name, "id")
         self.assertEqual(columns[1].name, "name")

@@ -153,9 +153,12 @@ def run_profiling(
         
         print("\nProfiling completed successfully!")
         
-    except Exception as exc:
+    except (FileNotFoundError, json.JSONDecodeError, ValueError, RuntimeError) as exc:
         print(f"Error during profiling: {exc}", file=sys.stderr)
         sys.exit(1)
+    except Exception as exc:
+        print(f"Unexpected error: {exc}", file=sys.stderr)
+        raise
 
 
 def create_sample_config(output_path: Path) -> None:

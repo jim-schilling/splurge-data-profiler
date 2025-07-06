@@ -161,8 +161,10 @@ class DataLakeFactory:
             
         except SQLAlchemyError as exc:
             raise RuntimeError(f"Database insertion failed: {exc}")
-        except Exception as exc:
+        except (ValueError, TypeError, AttributeError, OSError) as exc:
             raise RuntimeError(f"Streaming DSV to SQLite failed: {exc}")
+        except Exception as exc:
+            raise RuntimeError(f"Unexpected error streaming DSV to SQLite: {exc}")
 
     @staticmethod
     def _insert_batch(
@@ -269,6 +271,8 @@ class DataLakeFactory:
             
         except SQLAlchemyError as exc:
             raise RuntimeError(f"Failed to create SQLite table from DSV source: {exc}")
+        except (ValueError, TypeError, AttributeError, OSError) as exc:
+            raise RuntimeError(f"Error creating SQLite table: {exc}")
         except Exception as exc:
             raise RuntimeError(f"Unexpected error creating SQLite table: {exc}")
 

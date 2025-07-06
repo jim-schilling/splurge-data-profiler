@@ -256,8 +256,10 @@ class DsvSource(Source):
             )
             columns = [Column(name=col_name) for col_name in data_model.column_names]
             return columns
-        except Exception as exc:
+        except (ValueError, TypeError, AttributeError, OSError, UnicodeDecodeError) as exc:
             raise RuntimeError(f"Failed to initialize columns from file: {exc}")
+        except Exception as exc:
+            raise RuntimeError(f"Unexpected error initializing columns from file: {exc}")
     
     
     def __str__(self) -> str:
