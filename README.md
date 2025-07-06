@@ -1,6 +1,6 @@
 # Splurge Data Profiler
 
-A powerful data profiling tool for delimited and database sources that automatically infers data types and creates optimized data lakes.
+A powerful data profiling tool for delimited and database sources that automatically infers data types and creates optimized data lakes (SQLite database).
 
 ## Features
 
