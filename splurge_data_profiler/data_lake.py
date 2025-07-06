@@ -274,11 +274,5 @@ class DataLakeFactory:
         except (ValueError, TypeError, AttributeError, OSError) as exc:
             raise RuntimeError(f"Error creating SQLite table: {exc}")
         except Exception as exc:
-            raise RuntimeError(f"Unexpected error creating SQLite table: {exc}")
-
-
-    
-    
-    
-    
+            raise RuntimeError(f"Unexpected error creating SQLite table: {exc}")    
     
