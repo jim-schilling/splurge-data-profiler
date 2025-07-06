@@ -328,7 +328,7 @@ class DbSource(Source):
         return self._db_url
 
     @property
-    def db_schema(self) -> str:
+    def db_schema(self) -> Optional[str]:
         """Get the database schema."""
         return self._db_schema
 
