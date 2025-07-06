@@ -1,0 +1,14 @@
+{
+  "data_lake_path": "./data_lake",
+  "dsv": {
+    "delimiter": ",",
+    "strip": true,
+    "bookend": "\"",
+    "bookend_strip": true,
+    "encoding": "utf-8",
+    "skip_header_rows": 0,
+    "skip_footer_rows": 0,
+    "header_rows": 1,
+    "skip_empty_rows": true
+  }
+} 
