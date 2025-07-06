@@ -215,3 +215,14 @@ MIT License
 ## Changelog
 
 ### [0.1.0] 2025-07-06
+
+- **Initial release** of Splurge Data Profiler
+- **CLI implementation** with `profile` and `create-config` commands
+- **DSV file support** for CSV, TSV, and other delimiter-separated value files
+- **Automatic type inference** using adaptive sampling strategy
+- **Data lake creation** with SQLite database generation
+- **Inferred table creation** with both original and type-cast columns
+- **JSON configuration** for DSV parsing options
+- **ISO 8601 datetime support** for proper type inference
+- **Adaptive sampling** based on dataset size (50% for <50K rows, 25% for 50K-100K, 20% for 100K-500K, 15% for >500K)
+- **Simplified workflow** - always profiles and always creates inferred tables
