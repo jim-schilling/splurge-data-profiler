@@ -39,7 +39,7 @@ def load_config(config_path: Path) -> Dict[str, Any]:
         with open(config_path, 'r', encoding='utf-8') as f:
             config = json.load(f)
     except json.JSONDecodeError as exc:
-        raise json.JSONDecodeError(f"Invalid JSON in config file: {exc}")
+        raise json.JSONDecodeError(f"Invalid JSON in config file: {exc}", exc.doc, exc.pos) from exc
     
     # Validate required configuration (only data_lake_path is required now)
     required_keys = ['data_lake_path']
