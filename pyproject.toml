@@ -1,6 +1,6 @@
 [project]
 name = "splurge-data-profiler"
-version = "0.1.0"
+version = "0.1.1"
 description = "A data profiling tool for delimited and database sources."
 readme = "README.md"
 license = "MIT"
@@ -23,9 +23,8 @@ keywords = [
     "data-processing"
 ]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
-    "Intended Audience :: Data Scientists",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
@@ -39,7 +38,7 @@ classifiers = [
 requires-python = ">=3.10"
 dependencies = [
     "sqlalchemy>=2.0.37",
-    "splurge-tools==0.2.4",
+    "splurge-tools>=0.2.4",
 ]
 
 [project.urls]

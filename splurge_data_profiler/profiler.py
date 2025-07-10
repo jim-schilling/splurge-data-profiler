@@ -267,8 +267,7 @@ class Profiler:
             # Populate the table with data
             self._populate_inferred_table(
                 engine=engine,
-                new_table=new_table,
-                new_table_name=new_table_name
+                new_table=new_table
             )
             
             engine.dispose()
@@ -313,7 +312,6 @@ class Profiler:
             engine: Engine,
             new_table: Table,
             *,
-            new_table_name: str,
             batch_size: int = 1000
     ) -> None:
         """
@@ -322,7 +320,6 @@ class Profiler:
         Args:
             engine: SQLAlchemy engine instance
             new_table: The new table object
-            new_table_name: Name of the new table
             batch_size: Number of rows to process in each batch
             
         Raises:

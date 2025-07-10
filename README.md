@@ -215,6 +215,19 @@ MIT License
 
 ## Changelog
 
+### [0.1.1] 2025-07-10
+
+- **Enhanced test suite** with comprehensive performance testing framework
+- **Performance test organization** with separate basic and benchmark test files
+- **Test runner improvements** with new `coverage` test type and automatic fail-fast for performance tests
+- **Performance summary reporting** with detailed timing and efficiency metrics
+- **Optimized test execution** using file-based SQLite databases with unique names per test
+- **Test case naming convention** using zero-padded numbers (001k, 005k, 010k, 025k, 050k, 100k, 250k) for ordered execution
+- **Improved test isolation** with unique DSV file copies per test to prevent cross-test contamination
+- **Automatic output capture disable** for performance tests to show real-time summaries
+- **Code quality improvements** with strict Python standards compliance and comprehensive type annotations
+- **Test coverage optimization** with dedicated coverage test suite excluding time-consuming benchmarks
+
 ### [0.1.0] 2025-07-06
 
 - **Initial release** of Splurge Data Profiler

@@ -33,3 +33,4 @@ alwaysApply: true
 - Class and instance level fields shall have public property getters (e.g. is_active, data_model, file_name).
 - Prefer parameters in method signatures to be listed on separate lines.
 - Default parameters for Method signatures shall be named (e.g def myfunc(value: str, trim:bool = True) will be def myfunc(value: str, *, trim: bool = True)).
+- Remove dead code.
