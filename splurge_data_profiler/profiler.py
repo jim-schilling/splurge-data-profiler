@@ -30,10 +30,11 @@ class Profiler:
         Calculate adaptive sample size based on total dataset size.
         
         Adaptive sampling strategy:
-        - Datasets < 25K rows: 100% sample
-        - Datasets 25K-50K rows: 50% sample
-        - Datasets 50K-100K rows: 25% sample  
-        - Datasets 100K-500K rows: 20% sample
+        - Datasets < 10K rows: 100% sample
+        - Datasets 10K-25K rows: 75% sample
+        - Datasets 25K-50K rows: 50% sample  
+        - Datasets 50K-100K rows: 25% sample
+        - Datasets 100K-500K rows: 15% sample
         - Datasets > 500K rows: 10% sample
         
         Args:
@@ -42,14 +43,16 @@ class Profiler:
         Returns:
             Calculated sample size
         """
-        if total_rows < 25000:
-            return total_rows        
+        if total_rows < 10000:
+            return total_rows
+        elif total_rows < 25000:
+            return int(total_rows * 0.75)
         elif total_rows < 50000:
             return int(total_rows * 0.50)
         elif total_rows < 100000:
             return int(total_rows * 0.25)
         elif total_rows < 500000:
-            return int(total_rows * 0.20)
+            return int(total_rows * 0.15)
         else:
             return int(total_rows * 0.10)
 

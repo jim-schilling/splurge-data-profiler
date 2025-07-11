@@ -830,10 +830,11 @@ class TestProfilerEdgeCases(unittest.TestCase):
         Test the _calculate_adaptive_sample_size method directly to validate all assumptions.
         
         Tests all the adaptive sampling strategy boundaries and calculations:
-        - Datasets < 25K rows: 100% sample
-        - Datasets 25K-50K rows: 50% sample
-        - Datasets 50K-100K rows: 25% sample  
-        - Datasets 100K-500K rows: 20% sample
+        - Datasets < 10K rows: 100% sample
+        - Datasets 10K-25K rows: 75% sample
+        - Datasets 25K-50K rows: 50% sample  
+        - Datasets 50K-100K rows: 25% sample
+        - Datasets 100K-500K rows: 15% sample
         - Datasets > 500K rows: 10% sample
         """
         # Create a minimal profiler instance for testing
@@ -853,13 +854,12 @@ class TestProfilerEdgeCases(unittest.TestCase):
             
             profiler = Profiler(data_lake=data_lake)
             
-            # Test datasets < 25K rows (100% sample)
+            # Test datasets < 10K rows (100% sample)
             test_cases_small = [
                 (0, 0),
                 (1, 1),
                 (1000, 1000),
-                (10000, 10000),
-                (24999, 24999),
+                (9999, 9999),
             ]
             
             for total_rows, expected_sample in test_cases_small:
@@ -868,58 +868,67 @@ class TestProfilerEdgeCases(unittest.TestCase):
                     self.assertEqual(sample_size, expected_sample, 
                                    f"Expected {expected_sample} for {total_rows} rows, got {sample_size}")
             
+            # Test datasets 10K-25K rows (75% sample)
+            test_cases_75 = [
+                (10000, 7500),
+                (15000, 11250),
+                (20000, 15000),
+                (24999, int(24999 * 0.75)),
+            ]
+            for total_rows, expected_sample in test_cases_75:
+                with self.subTest(total_rows=total_rows, pct_75=True):
+                    sample_size = profiler._calculate_adaptive_sample_size(total_rows=total_rows)
+                    self.assertEqual(sample_size, expected_sample, 
+                                   f"Expected {expected_sample} for {total_rows} rows, got {sample_size}")
+            
             # Test datasets 25K-50K rows (50% sample)
-            test_cases_medium = [
+            test_cases_50 = [
                 (25000, 12500),
                 (30000, 15000),
                 (40000, 20000),
-                (49999, 24999),
+                (49999, int(49999 * 0.5)),
             ]
-            
-            for total_rows, expected_sample in test_cases_medium:
-                with self.subTest(total_rows=total_rows):
+            for total_rows, expected_sample in test_cases_50:
+                with self.subTest(total_rows=total_rows, pct_50=True):
                     sample_size = profiler._calculate_adaptive_sample_size(total_rows=total_rows)
                     self.assertEqual(sample_size, expected_sample,
                                    f"Expected {expected_sample} for {total_rows} rows, got {sample_size}")
             
             # Test datasets 50K-100K rows (25% sample)
-            test_cases_large = [
+            test_cases_25 = [
                 (50000, 12500),
                 (60000, 15000),
                 (80000, 20000),
-                (99999, 24999),
+                (99999, int(99999 * 0.25)),
             ]
-            
-            for total_rows, expected_sample in test_cases_large:
-                with self.subTest(total_rows=total_rows):
+            for total_rows, expected_sample in test_cases_25:
+                with self.subTest(total_rows=total_rows, pct_25=True):
                     sample_size = profiler._calculate_adaptive_sample_size(total_rows=total_rows)
                     self.assertEqual(sample_size, expected_sample,
                                    f"Expected {expected_sample} for {total_rows} rows, got {sample_size}")
             
-            # Test datasets 100K-500K rows (20% sample)
-            test_cases_xlarge = [
-                (100000, 20000),
-                (200000, 40000),
-                (300000, 60000),
-                (499999, 99999),
+            # Test datasets 100K-500K rows (15% sample)
+            test_cases_15 = [
+                (100000, 15000),
+                (200000, 30000),
+                (300000, 45000),
+                (499999, int(499999 * 0.15)),
             ]
-            
-            for total_rows, expected_sample in test_cases_xlarge:
-                with self.subTest(total_rows=total_rows):
+            for total_rows, expected_sample in test_cases_15:
+                with self.subTest(total_rows=total_rows, pct_15=True):
                     sample_size = profiler._calculate_adaptive_sample_size(total_rows=total_rows)
                     self.assertEqual(sample_size, expected_sample,
                                    f"Expected {expected_sample} for {total_rows} rows, got {sample_size}")
             
             # Test datasets > 500K rows (10% sample)
-            test_cases_huge = [
+            test_cases_10 = [
                 (500000, 50000),
                 (1000000, 100000),
                 (5000000, 500000),
                 (10000000, 1000000),
             ]
-            
-            for total_rows, expected_sample in test_cases_huge:
-                with self.subTest(total_rows=total_rows):
+            for total_rows, expected_sample in test_cases_10:
+                with self.subTest(total_rows=total_rows, pct_10=True):
                     sample_size = profiler._calculate_adaptive_sample_size(total_rows=total_rows)
                     self.assertEqual(sample_size, expected_sample,
                                    f"Expected {expected_sample} for {total_rows} rows, got {sample_size}")
@@ -927,24 +936,26 @@ class TestProfilerEdgeCases(unittest.TestCase):
             # Test boundary conditions and edge cases
             boundary_tests = [
                 # Test exact boundaries
+                (10000, 7500),  # Exactly at 10K boundary
                 (25000, 12500),  # Exactly at 25K boundary
                 (50000, 12500),  # Exactly at 50K boundary
-                (100000, 20000), # Exactly at 100K boundary
+                (100000, 15000), # Exactly at 100K boundary
                 (500000, 50000), # Exactly at 500K boundary
                 
                 # Test one row before boundaries
-                (24999, 24999),  # One row before 25K boundary
-                (49999, 24999),  # One row before 50K boundary
-                (99999, 24999),  # One row before 100K boundary
-                (499999, 99999), # One row before 500K boundary
+                (9999, 9999),  # One row before 10K boundary
+                (24999, int(24999 * 0.75)),  # One row before 25K boundary
+                (49999, int(49999 * 0.5)),  # One row before 50K boundary
+                (99999, int(99999 * 0.25)),  # One row before 100K boundary
+                (499999, int(499999 * 0.15)), # One row before 500K boundary
                 
                 # Test one row after boundaries
-                (25001, 12500),  # One row after 25K boundary
-                (50001, 12500),  # One row after 50K boundary (25% of 50001 = 12500)
-                (100001, 20000), # One row after 100K boundary
-                (500001, 50000), # One row after 500K boundary
+                (10001, int(10001 * 0.75)),  # One row after 10K boundary
+                (25001, int(25001 * 0.5)),  # One row after 25K boundary
+                (50001, int(50001 * 0.25)),  # One row after 50K boundary
+                (100001, int(100001 * 0.15)), # One row after 100K boundary
+                (500001, int(500001 * 0.10)), # One row after 500K boundary
             ]
-            
             for total_rows, expected_sample in boundary_tests:
                 with self.subTest(total_rows=total_rows, boundary_test=True):
                     sample_size = profiler._calculate_adaptive_sample_size(total_rows=total_rows)

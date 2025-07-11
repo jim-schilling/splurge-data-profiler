@@ -112,6 +112,11 @@ Examples:
     if args.test_type == 'performance':
         pytest_cmd.append('-s')
         print("Note: Output capture disabled (-s) for performance tests to show summaries")
+
+    # Automatically enable output capture disable (-s) for coverage tests
+    if args.test_type == 'coverage':
+        pytest_cmd.append('-s')
+        print("Note: Output capture disabled (-s) for coverage tests to show summaries")
     
     # Determine test paths based on test type
     if args.test_type == 'all':

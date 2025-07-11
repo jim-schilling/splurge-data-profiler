@@ -63,8 +63,8 @@ class PerformanceBenchmarks(unittest.TestCase):
 
     def setUp(self) -> None:
         """Set up test environment."""
-        self.test_dir = Path("tests/performance/test_data")
-        self.test_dir.mkdir(parents=True, exist_ok=True)
+        self._temp_dir = tempfile.TemporaryDirectory()
+        self.test_dir = Path(self._temp_dir.name)
         
         # Generate a large DSV file with 100,000 rows for testing
         self.dsv_path = self.test_dir / "performance_test_data_100k.dsv"
@@ -73,8 +73,7 @@ class PerformanceBenchmarks(unittest.TestCase):
 
     def tearDown(self) -> None:
         """Clean up test fixtures after each test method."""
-        # No cleanup needed since we use persistent test data directory
-        pass
+        self._temp_dir.cleanup()
 
     def _generate_dsv(
             self,
