@@ -217,16 +217,19 @@ MIT License
 
 ### [0.1.1] 2025-07-10
 
-- **Enhanced test suite** with comprehensive performance testing framework
-- **Performance test organization** with separate basic and benchmark test files
-- **Test runner improvements** with new `coverage` test type and automatic fail-fast for performance tests
-- **Performance summary reporting** with detailed timing and efficiency metrics
-- **Optimized test execution** using file-based SQLite databases with unique names per test
-- **Test case naming convention** using zero-padded numbers (001k, 005k, 010k, 025k, 050k, 100k, 250k) for ordered execution
-- **Improved test isolation** with unique DSV file copies per test to prevent cross-test contamination
-- **Automatic output capture disable** for performance tests to show real-time summaries
-- **Code quality improvements** with strict Python standards compliance and comprehensive type annotations
-- **Test coverage optimization** with dedicated coverage test suite excluding time-consuming benchmarks
+- **Refactored adaptive sampling logic**: Sampling thresholds and factors are now defined as class-level rules using a dataclass, improving maintainability and clarity.
+- **Public classmethod for adaptive sample size**: `calculate_adaptive_sample_size` is now a public classmethod, replacing the previous private method and magic numbers.
+- **Test suite updated**: All tests now use the new classmethod for adaptive sample size, ensuring consistency and eliminating magic numbers.
+- **Sampling rules updated**: New adaptive sampling rules:
+    - < 5K rows: 100%
+    - < 10K rows: 80%
+    - < 25K rows: 60%
+    - < 100K rows: 40%
+    - < 500K rows: 20%
+    - >= 500K rows: 10%
+- **General code quality improvements**: Improved type annotations, error handling, and code organization per project standards.
+- **Enhanced test coverage and reliability**: Test logic and assertions now reflect the updated adaptive sampling strategy.
+- (See previous notes for performance test and runner improvements.)
 
 ### [0.1.0] 2025-07-06
 
