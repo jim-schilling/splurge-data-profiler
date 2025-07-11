@@ -10,23 +10,27 @@ import argparse
 import subprocess
 import sys
 from pathlib import Path
+import logging
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 
 def run_command(cmd: list[str], description: str) -> int:
     """Run a command and return the exit code."""
-    print(f"\n{'='*60}")
-    print(f"Running: {description}")
-    print(f"Command: {' '.join(cmd)}")
-    print('='*60)
+    logger.info(f"\n{'='*60}")
+    logger.info(f"Running: {description}")
+    logger.info(f"Command: {' '.join(cmd)}")
+    logger.info('='*60)
     
     try:
         result = subprocess.run(cmd, check=False)
         return result.returncode
     except KeyboardInterrupt:
-        print("\nTest run interrupted by user.")
+        logger.info("\nTest run interrupted by user.")
         return 1
     except Exception as e:
-        print(f"Error running command: {e}")
+        logger.error(f"Error running command: {e}")
         return 1
 
 
@@ -106,17 +110,17 @@ Examples:
     # Automatically enable fail-fast for performance tests
     if args.test_type == 'performance' and not args.fail_fast:
         pytest_cmd.append('-x')
-        print("Note: Fail-fast mode automatically enabled for performance tests")
+        logger.info("Note: Fail-fast mode automatically enabled for performance tests")
     
     # Automatically enable output capture disable (-s) for performance tests
     if args.test_type == 'performance':
         pytest_cmd.append('-s')
-        print("Note: Output capture disabled (-s) for performance tests to show summaries")
+        logger.info("Note: Output capture disabled (-s) for performance tests to show summaries")
 
     # Automatically enable output capture disable (-s) for coverage tests
     if args.test_type == 'coverage':
         pytest_cmd.append('-s')
-        print("Note: Output capture disabled (-s) for coverage tests to show summaries")
+        logger.info("Note: Output capture disabled (-s) for coverage tests to show summaries")
     
     # Determine test paths based on test type
     if args.test_type == 'all':
@@ -174,7 +178,7 @@ Examples:
         description = "Coverage tests (all except performance benchmarks)"
         
     else:
-        print(f"Unknown test type: {args.test_type}")
+        logger.error(f"Unknown test type: {args.test_type}")
         return 1
     
     # Check if test paths exist
@@ -183,10 +187,10 @@ Examples:
         if Path(path).exists():
             existing_paths.append(path)
         else:
-            print(f"Warning: Test path '{path}' does not exist")
+            logger.warning(f"Warning: Test path '{path}' does not exist")
     
     if not existing_paths:
-        print("No test paths found to run!")
+        logger.warning("No test paths found to run!")
         return 1
     
     # Run the tests

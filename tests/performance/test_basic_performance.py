@@ -20,6 +20,10 @@ from splurge_data_profiler.data_lake import DataLakeFactory
 from splurge_data_profiler.profiler import Profiler
 from splurge_data_profiler.source import DsvSource
 
+import logging
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
+
 
 class BasicPerformanceTests(unittest.TestCase):
     """Basic performance tests for data profiling operations."""
@@ -153,31 +157,25 @@ class BasicPerformanceTests(unittest.TestCase):
             db_path: Path
     ) -> None:
         """
-        Print a formatted performance summary.
-        
-        Args:
-            test_name: Name of the test
-            results: Dictionary containing timing results
-            num_rows: Number of rows processed
-            db_path: Path to the database file
+        Print a formatted performance summary using logger.info.
         """
         # Get database file size
         db_size_mb = db_path.stat().st_size / (1024 * 1024) if db_path.exists() else 0
-        
-        print(f"\n{'='*60}")
-        print(f"PERFORMANCE SUMMARY: {test_name}")
-        print(f"{'='*60}")
-        print(f"Dataset Size: {num_rows:,} rows")
-        print(f"Database File: {db_path.name}")
-        print(f"Database Size: {db_size_mb:.2f} MB")
-        print(f"Database Creation: {results['db_creation_time']:.3f}s")
-        print(f"Data Profiling: {results['profiling_time']:.3f}s")
-        print(f"Table Creation: {results['table_creation_time']:.3f}s")
-        print(f"Total Time: {results['total_time']:.3f}s")
-        print(f"Rows per Second: {num_rows / results['total_time']:.0f}")
-        print(f"Profiling Efficiency: {num_rows / results['profiling_time']:.0f} rows/s")
-        print(f"Database I/O: {db_size_mb / results['total_time']:.2f} MB/s")
-        print(f"{'='*60}")
+
+        logger.info(f"\n{'='*60}")
+        logger.info(f"PERFORMANCE SUMMARY: {test_name}")
+        logger.info(f"{'='*60}")
+        logger.info(f"Dataset Size: {num_rows:,} rows")
+        logger.info(f"Database File: {db_path.name}")
+        logger.info(f"Database Size: {db_size_mb:.2f} MB")
+        logger.info(f"Database Creation: {results['db_creation_time']:.3f}s")
+        logger.info(f"Data Profiling: {results['profiling_time']:.3f}s")
+        logger.info(f"Table Creation: {results['table_creation_time']:.3f}s")
+        logger.info(f"Total Time: {results['total_time']:.3f}s")
+        logger.info(f"Rows per Second: {num_rows / results['total_time']:.0f}")
+        logger.info(f"Profiling Efficiency: {num_rows / results['profiling_time']:.0f} rows/s")
+        logger.info(f"Database I/O: {db_size_mb / results['total_time']:.2f} MB/s")
+        logger.info(f"{'='*60}")
 
     def _run_performance_test(self, num_rows: int) -> Tuple[Dict[str, float], Path]:
         """
@@ -381,14 +379,14 @@ class BasicPerformanceTests(unittest.TestCase):
                 f"Times: {[f'{t:.3f}s' for t in times]}"
             )
             
-            print(f"\n{'='*60}")
-            print("CONSISTENCY ANALYSIS")
-            print(f"{'='*60}")
-            print(f"Mean core operations time: {mean_time:.3f}s")
-            print(f"Max deviation: {max_deviation:.3f}s")
-            print(f"Variance: {max_deviation/mean_time:.2%}")
-            print(f"Core operation times: {[f'{t:.3f}s' for t in times]}")
-            print(f"{'='*60}")
+            logger.info(f"\n{'='*60}")
+            logger.info("CONSISTENCY ANALYSIS")
+            logger.info(f"{'='*60}")
+            logger.info(f"Mean core operations time: {mean_time:.3f}s")
+            logger.info(f"Max deviation: {max_deviation:.3f}s")
+            logger.info(f"Variance: {max_deviation/mean_time:.2%}")
+            logger.info(f"Core operation times: {[f'{t:.3f}s' for t in times]}")
+            logger.info(f"{'='*60}")
 
 
 if __name__ == '__main__':
