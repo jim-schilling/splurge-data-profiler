@@ -171,29 +171,29 @@ class DataLakeFactory:
             engine,
             *,
             table_name: str,
-            batch_data: List[dict]
+            batch_data: List[dict],
+            chunk_size: int = 25
     ) -> None:
         """
-        Insert a batch of data into the specified table.
+        Insert a batch of data into the specified table in smaller chunks.
         
         Args:
             engine: SQLAlchemy engine instance
             table_name: Name of the table to insert into
             batch_data: List of dictionaries representing rows to insert
-            
+            chunk_size: Number of rows per insert statement (default: 25)
+        
         Raises:
             SQLAlchemyError: If insertion fails
         """
         with engine.connect() as connection:
-            # Get the table object from the database
             metadata = MetaData()
             table = Table(table_name, metadata, autoload_with=engine)
-            
-            # Create insert statement using the table object
             insert_stmt = insert(table)
-            
-            # Execute batch insert
-            result = connection.execute(insert_stmt, batch_data)
+
+            for i in range(0, len(batch_data), chunk_size):
+                chunk = batch_data[i:i + chunk_size]
+                connection.execute(insert_stmt, chunk)
             connection.commit()
 
     @classmethod

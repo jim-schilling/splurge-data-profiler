@@ -1,5 +1,6 @@
 import copy
 from typing import List, Optional, Any, Dict
+from dataclasses import dataclass
 
 from sqlalchemy import (
     create_engine, text, inspect, MetaData, Table, Column as SAColumn, 
@@ -14,6 +15,41 @@ from splurge_data_profiler.source import Column, DataType
 
 class Profiler:
 
+    @dataclass(frozen=True)
+    class _SampleRule:
+        threshold: float
+        factor: float
+
+    _SAMPLE_RULES = [
+        _SampleRule(5_000, 1.0),
+        _SampleRule(10_000, 0.80),
+        _SampleRule(25_000, 0.60),
+        _SampleRule(100_000, 0.40),
+        _SampleRule(500_000, 0.20),
+        _SampleRule(float('inf'), 0.10),
+    ]
+
+    @classmethod
+    def calculate_adaptive_sample_size(
+        cls,
+        *,
+        total_rows: int
+    ) -> int:
+        """
+        Calculate adaptive sample size based on total dataset size using class-level rules.
+        The rules are defined in the _SAMPLE_RULES class variable.
+        
+        Args:
+            total_rows: Total number of rows in the dataset
+            
+        Returns:
+            Calculated sample size
+        """
+        for rule in cls._SAMPLE_RULES:
+            if total_rows < rule.threshold:
+                return int(total_rows * rule.factor)
+        return int(total_rows)  # fallback, should never hit
+
     def __init__(
             self,
             *,
@@ -24,34 +60,6 @@ class Profiler:
         self._data_lake = data_lake
         # Create a private copy of the DbSource columns
         self._profiled_columns = copy.deepcopy(data_lake.db_source.columns)
-
-    def _calculate_adaptive_sample_size(self, *, total_rows: int) -> int:
-        """
-        Calculate adaptive sample size based on total dataset size.
-        
-        Adaptive sampling strategy:
-        - Datasets < 25K rows: 100% sample
-        - Datasets 25K-50K rows: 50% sample
-        - Datasets 50K-100K rows: 25% sample  
-        - Datasets 100K-500K rows: 20% sample
-        - Datasets > 500K rows: 10% sample
-        
-        Args:
-            total_rows: Total number of rows in the dataset
-            
-        Returns:
-            Calculated sample size
-        """
-        if total_rows < 25000:
-            return total_rows        
-        elif total_rows < 50000:
-            return int(total_rows * 0.50)
-        elif total_rows < 100000:
-            return int(total_rows * 0.25)
-        elif total_rows < 500000:
-            return int(total_rows * 0.20)
-        else:
-            return int(total_rows * 0.10)
 
     def profile(
             self,
@@ -86,7 +94,7 @@ class Profiler:
                     result = connection.execute(text(f"SELECT COUNT(*) FROM {table_name}"))
                     total_rows = result.fetchone()[0]
                 
-                sample_size = self._calculate_adaptive_sample_size(total_rows=total_rows)
+                sample_size = self.calculate_adaptive_sample_size(total_rows=total_rows)
             
             # Profile each column
             for column in self._profiled_columns:
@@ -267,8 +275,7 @@ class Profiler:
             # Populate the table with data
             self._populate_inferred_table(
                 engine=engine,
-                new_table=new_table,
-                new_table_name=new_table_name
+                new_table=new_table
             )
             
             engine.dispose()
@@ -313,7 +320,6 @@ class Profiler:
             engine: Engine,
             new_table: Table,
             *,
-            new_table_name: str,
             batch_size: int = 1000
     ) -> None:
         """
@@ -322,7 +328,6 @@ class Profiler:
         Args:
             engine: SQLAlchemy engine instance
             new_table: The new table object
-            new_table_name: Name of the new table
             batch_size: Number of rows to process in each batch
             
         Raises:

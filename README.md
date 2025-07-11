@@ -215,6 +215,22 @@ MIT License
 
 ## Changelog
 
+### [0.1.1] 2025-07-10
+
+- **Refactored adaptive sampling logic**: Sampling thresholds and factors are now defined as class-level rules using a dataclass, improving maintainability and clarity.
+- **Public classmethod for adaptive sample size**: `calculate_adaptive_sample_size` is now a public classmethod, replacing the previous private method and magic numbers.
+- **Test suite updated**: All tests now use the new classmethod for adaptive sample size, ensuring consistency and eliminating magic numbers.
+- **Sampling rules updated**: New adaptive sampling rules:
+    - < 5K rows: 100%
+    - < 10K rows: 80%
+    - < 25K rows: 60%
+    - < 100K rows: 40%
+    - < 500K rows: 20%
+    - >= 500K rows: 10%
+- **General code quality improvements**: Improved type annotations, error handling, and code organization per project standards.
+- **Enhanced test coverage and reliability**: Test logic and assertions now reflect the updated adaptive sampling strategy.
+- (See previous notes for performance test and runner improvements.)
+
 ### [0.1.0] 2025-07-06
 
 - **Initial release** of Splurge Data Profiler
