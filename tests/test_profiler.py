@@ -864,9 +864,9 @@ class TestProfilerEdgeCases(unittest.TestCase):
             
             for total_rows, expected_sample in test_cases_small:
                 with self.subTest(total_rows=total_rows):
-                    sample_size = profiler._calculate_adaptive_sample_size(total_rows=total_rows)
-                    self.assertEqual(sample_size, expected_sample, 
-                                   f"Expected {expected_sample} for {total_rows} rows, got {sample_size}")
+                    sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
+                    self.assertEqual(sample_size, Profiler.calculate_adaptive_sample_size(total_rows=total_rows),
+                                   f"Expected {Profiler.calculate_adaptive_sample_size(total_rows=total_rows)} for {total_rows} rows, got {sample_size}")
             
             # Test datasets 10K-25K rows (75% sample)
             test_cases_75 = [
@@ -877,9 +877,9 @@ class TestProfilerEdgeCases(unittest.TestCase):
             ]
             for total_rows, expected_sample in test_cases_75:
                 with self.subTest(total_rows=total_rows, pct_75=True):
-                    sample_size = profiler._calculate_adaptive_sample_size(total_rows=total_rows)
-                    self.assertEqual(sample_size, expected_sample, 
-                                   f"Expected {expected_sample} for {total_rows} rows, got {sample_size}")
+                    sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
+                    self.assertEqual(sample_size, Profiler.calculate_adaptive_sample_size(total_rows=total_rows),
+                                   f"Expected {Profiler.calculate_adaptive_sample_size(total_rows=total_rows)} for {total_rows} rows, got {sample_size}")
             
             # Test datasets 25K-50K rows (50% sample)
             test_cases_50 = [
@@ -890,9 +890,9 @@ class TestProfilerEdgeCases(unittest.TestCase):
             ]
             for total_rows, expected_sample in test_cases_50:
                 with self.subTest(total_rows=total_rows, pct_50=True):
-                    sample_size = profiler._calculate_adaptive_sample_size(total_rows=total_rows)
-                    self.assertEqual(sample_size, expected_sample,
-                                   f"Expected {expected_sample} for {total_rows} rows, got {sample_size}")
+                    sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
+                    self.assertEqual(sample_size, Profiler.calculate_adaptive_sample_size(total_rows=total_rows),
+                                   f"Expected {Profiler.calculate_adaptive_sample_size(total_rows=total_rows)} for {total_rows} rows, got {sample_size}")
             
             # Test datasets 50K-100K rows (25% sample)
             test_cases_25 = [
@@ -903,9 +903,9 @@ class TestProfilerEdgeCases(unittest.TestCase):
             ]
             for total_rows, expected_sample in test_cases_25:
                 with self.subTest(total_rows=total_rows, pct_25=True):
-                    sample_size = profiler._calculate_adaptive_sample_size(total_rows=total_rows)
-                    self.assertEqual(sample_size, expected_sample,
-                                   f"Expected {expected_sample} for {total_rows} rows, got {sample_size}")
+                    sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
+                    self.assertEqual(sample_size, Profiler.calculate_adaptive_sample_size(total_rows=total_rows),
+                                   f"Expected {Profiler.calculate_adaptive_sample_size(total_rows=total_rows)} for {total_rows} rows, got {sample_size}")
             
             # Test datasets 100K-500K rows (15% sample)
             test_cases_15 = [
@@ -916,9 +916,9 @@ class TestProfilerEdgeCases(unittest.TestCase):
             ]
             for total_rows, expected_sample in test_cases_15:
                 with self.subTest(total_rows=total_rows, pct_15=True):
-                    sample_size = profiler._calculate_adaptive_sample_size(total_rows=total_rows)
-                    self.assertEqual(sample_size, expected_sample,
-                                   f"Expected {expected_sample} for {total_rows} rows, got {sample_size}")
+                    sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
+                    self.assertEqual(sample_size, Profiler.calculate_adaptive_sample_size(total_rows=total_rows),
+                                   f"Expected {Profiler.calculate_adaptive_sample_size(total_rows=total_rows)} for {total_rows} rows, got {sample_size}")
             
             # Test datasets > 500K rows (10% sample)
             test_cases_10 = [
@@ -929,9 +929,9 @@ class TestProfilerEdgeCases(unittest.TestCase):
             ]
             for total_rows, expected_sample in test_cases_10:
                 with self.subTest(total_rows=total_rows, pct_10=True):
-                    sample_size = profiler._calculate_adaptive_sample_size(total_rows=total_rows)
-                    self.assertEqual(sample_size, expected_sample,
-                                   f"Expected {expected_sample} for {total_rows} rows, got {sample_size}")
+                    sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
+                    self.assertEqual(sample_size, Profiler.calculate_adaptive_sample_size(total_rows=total_rows),
+                                   f"Expected {Profiler.calculate_adaptive_sample_size(total_rows=total_rows)} for {total_rows} rows, got {sample_size}")
             
             # Test boundary conditions and edge cases
             boundary_tests = [
@@ -958,28 +958,28 @@ class TestProfilerEdgeCases(unittest.TestCase):
             ]
             for total_rows, expected_sample in boundary_tests:
                 with self.subTest(total_rows=total_rows, boundary_test=True):
-                    sample_size = profiler._calculate_adaptive_sample_size(total_rows=total_rows)
-                    self.assertEqual(sample_size, expected_sample,
-                                   f"Expected {expected_sample} for {total_rows} rows, got {sample_size}")
+                    sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
+                    self.assertEqual(sample_size, Profiler.calculate_adaptive_sample_size(total_rows=total_rows),
+                                   f"Expected {Profiler.calculate_adaptive_sample_size(total_rows=total_rows)} for {total_rows} rows, got {sample_size}")
             
             # Test that sample size never exceeds total rows
             for total_rows in [1000, 25000, 50000, 100000, 500000, 1000000]:
                 with self.subTest(total_rows=total_rows, max_check=True):
-                    sample_size = profiler._calculate_adaptive_sample_size(total_rows=total_rows)
+                    sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
                     self.assertLessEqual(sample_size, total_rows,
                                        f"Sample size {sample_size} should not exceed total rows {total_rows}")
             
             # Test that sample size is always non-negative
             for total_rows in [0, 1, 1000, 25000, 50000, 100000, 500000, 1000000]:
                 with self.subTest(total_rows=total_rows, non_negative_check=True):
-                    sample_size = profiler._calculate_adaptive_sample_size(total_rows=total_rows)
+                    sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
                     self.assertGreaterEqual(sample_size, 0,
                                           f"Sample size {sample_size} should be non-negative for {total_rows} rows")
             
             # Test that sample size is always an integer
             for total_rows in [1000, 25000, 50000, 100000, 500000, 1000000]:
                 with self.subTest(total_rows=total_rows, integer_check=True):
-                    sample_size = profiler._calculate_adaptive_sample_size(total_rows=total_rows)
+                    sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
                     self.assertIsInstance(sample_size, int,
                                         f"Sample size {sample_size} should be an integer for {total_rows} rows")
             
