@@ -7,6 +7,7 @@ of data profiling operations without requiring external dependencies.
 
 import csv
 import random
+import shutil
 import tempfile
 import time
 import unittest
@@ -62,7 +63,6 @@ class BasicPerformanceTests(unittest.TestCase):
     def tearDown(self) -> None:
         """Clean up test fixtures after each test method."""
         try:
-            import shutil
             shutil.rmtree(self.temp_dir)
         except OSError:
             pass

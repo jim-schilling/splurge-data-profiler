@@ -435,10 +435,7 @@ class Profiler:
                     # Try the String.to_bool method as fallback
                     try:
                         bool_result = String.to_bool(str_value)
-                        if bool_result is not None:
-                            return bool(bool_result)
-                        else:
-                            return None
+                        return bool(bool_result) if bool_result is not None else None
                     except (ValueError, TypeError):
                         return None
             elif target_type == DataType.DATE:

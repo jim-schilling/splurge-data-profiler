@@ -1,4 +1,5 @@
 import os
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
@@ -540,7 +541,6 @@ class TestDataLakeFactoryStreaming(unittest.TestCase):
         except Exception:
             pass
         try:
-            import shutil
             shutil.rmtree(self.temp_dir)
         except Exception:
             pass
@@ -906,7 +906,6 @@ class TestDataLakeFactory(unittest.TestCase):
         except Exception:
             pass
         try:
-            import shutil
             shutil.rmtree(self.temp_dir)
         except Exception:
             pass

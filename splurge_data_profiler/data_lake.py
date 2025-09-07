@@ -103,6 +103,7 @@ class DataLakeFactory:
                 delimiter=dsv_source.delimiter,
                 bookend=dsv_source.bookend,
                 bookend_strip=dsv_source.bookend_strip,
+                strip=dsv_source.strip,
                 skip_header_rows=dsv_source.skip_header_rows,
                 skip_footer_rows=dsv_source.skip_footer_rows
             )

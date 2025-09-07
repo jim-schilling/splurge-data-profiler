@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 from datetime import datetime, date, time, timedelta
 import csv
+import shutil
 from sqlalchemy import create_engine, inspect, text, MetaData, Table, Column, String
 
 from splurge_data_profiler.source import DataType, DsvSource, DbSource
@@ -48,7 +49,6 @@ class TestProfilerComprehensive(unittest.TestCase):
         
         # Remove temporary directory and contents
         try:
-            import shutil
             shutil.rmtree(cls.temp_dir)
         except OSError:
             pass
@@ -777,7 +777,6 @@ class TestProfilerEdgeCases(unittest.TestCase):
             except OSError:
                 pass  # File may not exist or be locked
             try:
-                import shutil
                 shutil.rmtree(temp_dir)
             except OSError:
                 pass  # Directory may not exist or be locked
@@ -817,7 +816,6 @@ class TestProfilerEdgeCases(unittest.TestCase):
             except OSError:
                 pass  # File may not exist or be locked
             try:
-                import shutil
                 shutil.rmtree(temp_dir)
             except OSError:
                 pass  # Directory may not exist or be locked
@@ -989,7 +987,6 @@ class TestProfilerEdgeCases(unittest.TestCase):
             except OSError:
                 pass  # File may not exist or be locked
             try:
-                import shutil
                 shutil.rmtree(temp_dir)
             except OSError:
                 pass  # Directory may not exist or be locked
@@ -1034,7 +1031,6 @@ class TestProfilerEdgeCases(unittest.TestCase):
             except OSError:
                 pass  # File may not exist or be locked
             try:
-                import shutil
                 shutil.rmtree(temp_dir)
             except OSError:
                 pass  # Directory may not exist or be locked
@@ -1052,15 +1048,12 @@ class TestProfilerTypeCasting(unittest.TestCase):
     def tearDown(self) -> None:
         """Clean up test fixtures."""
         try:
-            import shutil
             shutil.rmtree(self.temp_dir)
         except OSError:
             pass
 
     def test_cast_value_none_input(self) -> None:
         """Test _cast_value with None input."""
-        from splurge_data_profiler.profiler import Profiler
-        from splurge_data_profiler.source import DataType
 
         # Create a minimal profiler instance
         temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
@@ -1088,8 +1081,6 @@ class TestProfilerTypeCasting(unittest.TestCase):
 
     def test_cast_value_empty_string(self) -> None:
         """Test _cast_value with empty string input."""
-        from splurge_data_profiler.profiler import Profiler
-        from splurge_data_profiler.source import DataType
 
         # Create a minimal profiler instance
         temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
@@ -1117,8 +1108,6 @@ class TestProfilerTypeCasting(unittest.TestCase):
 
     def test_cast_value_integer_conversion(self) -> None:
         """Test _cast_value integer conversion with various inputs."""
-        from splurge_data_profiler.profiler import Profiler
-        from splurge_data_profiler.source import DataType
 
         # Create a minimal profiler instance
         temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
@@ -1166,8 +1155,6 @@ class TestProfilerTypeCasting(unittest.TestCase):
 
     def test_cast_value_boolean_conversion(self) -> None:
         """Test _cast_value boolean conversion with various inputs."""
-        from splurge_data_profiler.profiler import Profiler
-        from splurge_data_profiler.source import DataType
 
         # Create a minimal profiler instance
         temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")

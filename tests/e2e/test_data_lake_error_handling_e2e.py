@@ -1,6 +1,7 @@
 import os
 import tempfile
 import unittest
+import shutil
 from pathlib import Path
 
 from sqlalchemy import create_engine, MetaData, Table, Column as SAColumn, String
@@ -22,7 +23,6 @@ class TestDataLakeErrorHandling(unittest.TestCase):
     def tearDown(self) -> None:
         """Clean up test fixtures."""
         try:
-            import shutil
             shutil.rmtree(self.temp_dir)
         except OSError:
             pass

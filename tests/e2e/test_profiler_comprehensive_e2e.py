@@ -1,6 +1,7 @@
 import os
 import tempfile
 import unittest
+import shutil
 from pathlib import Path
 from datetime import datetime, date, time, timedelta
 import csv
@@ -47,7 +48,6 @@ class TestProfilerComprehensive(unittest.TestCase):
 
         # Remove temporary directory and contents
         try:
-            import shutil
             shutil.rmtree(cls.temp_dir)
         except OSError:
             pass

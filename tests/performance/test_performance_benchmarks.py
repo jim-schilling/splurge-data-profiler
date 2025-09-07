@@ -6,6 +6,7 @@ of data profiling operations across different dataset sizes and scenarios.
 """
 
 import csv
+import gc
 import random
 import tempfile
 import time
@@ -76,8 +77,6 @@ class PerformanceBenchmarks(unittest.TestCase):
 
     def tearDown(self) -> None:
         """Clean up test fixtures after each test method."""
-        import time
-        import gc
         # Force garbage collection to ensure database connections are closed
         gc.collect()
         time.sleep(0.1)  # Small delay to allow file handles to be released
