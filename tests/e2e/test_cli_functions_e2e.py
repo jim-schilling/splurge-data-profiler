@@ -23,14 +23,8 @@ from splurge_data_profiler.source import DsvSource
 
 def test_load_config_valid():
     """Test loading a valid configuration file."""
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-        config = {
-            "data_lake_path": "./test_lake",
-            "dsv": {
-                "delimiter": "|",
-                "strip": False
-            }
-        }
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+        config = {"data_lake_path": "./test_lake", "dsv": {"delimiter": "|", "strip": False}}
         json.dump(config, f)
         config_path = Path(f.name)
 
@@ -46,6 +40,7 @@ def test_load_config_valid():
 def test_load_config_file_not_found():
     """Test loading a non-existent configuration file."""
     from splurge_data_profiler.exceptions import ConfigurationError
+
     with pytest.raises(ConfigurationError):
         load_config(Path("nonexistent.json"))
 
@@ -53,7 +48,8 @@ def test_load_config_file_not_found():
 def test_load_config_invalid_json():
     """Test loading an invalid JSON configuration file."""
     from splurge_data_profiler.exceptions import ConfigurationError
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
         f.write('{"invalid": json}')
         config_path = Path(f.name)
 
@@ -67,7 +63,8 @@ def test_load_config_invalid_json():
 def test_load_config_missing_required_keys():
     """Test loading configuration with missing required keys."""
     from splurge_data_profiler.exceptions import ConfigurationError
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
         config = {"dsv": {"delimiter": ","}}  # Missing data_lake_path
         json.dump(config, f)
         config_path = Path(f.name)
@@ -82,7 +79,7 @@ def test_load_config_missing_required_keys():
 def test_create_dsv_source_from_config_defaults():
     """Test creating DsvSource with default configuration."""
     # Create a temporary test file
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
         f.write("id,name,value\n1,Alice,10.5\n2,Bob,20.0\n")
         dsv_path = Path(f.name)
 
@@ -94,11 +91,11 @@ def test_create_dsv_source_from_config_defaults():
         # Verify the result is a DsvSource
         assert isinstance(result, DsvSource)
         assert result.file_path == dsv_path
-        assert result.delimiter == ','
+        assert result.delimiter == ","
         assert result.strip is True
         assert result.bookend == '"'
         assert result.bookend_strip is True
-        assert result.encoding == 'utf-8'
+        assert result.encoding == "utf-8"
         assert result.skip_header_rows == 0
         assert result.skip_footer_rows == 0
         assert result.header_rows == 1
@@ -115,8 +112,10 @@ def test_create_dsv_source_from_config_defaults():
 def test_create_dsv_source_from_config_custom():
     """Test creating DsvSource with custom configuration."""
     # Create a temporary test file with pipe delimiter and more rows for testing
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
-        f.write("header1|header2|header3\nskip1|skip2|skip3\nid|name|value\n1|Alice|10.5\n2|Bob|20.0\nfooter1|footer2|footer3\n")
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+        f.write(
+            "header1|header2|header3\nskip1|skip2|skip3\nid|name|value\n1|Alice|10.5\n2|Bob|20.0\nfooter1|footer2|footer3\n"
+        )
         dsv_path = Path(f.name)
 
     try:
@@ -131,8 +130,8 @@ def test_create_dsv_source_from_config_custom():
                 "skip_header_rows": 2,
                 "skip_footer_rows": 1,
                 "header_rows": 1,
-                "skip_empty_rows": False
-            }
+                "skip_empty_rows": False,
+            },
         }
 
         result = create_dsv_source_from_config(dsv_path, config)
@@ -140,11 +139,11 @@ def test_create_dsv_source_from_config_custom():
         # Verify the result is a DsvSource
         assert isinstance(result, DsvSource)
         assert result.file_path == dsv_path
-        assert result.delimiter == '|'
+        assert result.delimiter == "|"
         assert result.strip is False
         assert result.bookend == "'"
         assert result.bookend_strip is False
-        assert result.encoding == 'latin-1'
+        assert result.encoding == "latin-1"
         assert result.skip_header_rows == 2
         assert result.skip_footer_rows == 1
         assert result.header_rows == 1
@@ -161,18 +160,18 @@ def test_create_dsv_source_from_config_custom():
 
 def test_create_sample_config():
     """Test creating a sample configuration file."""
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
         output_path = Path(f.name)
 
     try:
-        with patch('builtins.print') as mock_print:
+        with patch("builtins.print") as mock_print:
             create_sample_config(output_path)
 
             # Check that the file was created
             assert output_path.exists()
 
             # Check the content
-            with open(output_path, 'r') as f:
+            with open(output_path, "r") as f:
                 config = json.load(f)
 
             assert config["data_lake_path"] == "./data_lake"
@@ -191,24 +190,20 @@ def test_run_profiling_success():
     temp_dir = tempfile.mkdtemp()
 
     # Create test DSV file
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
         f.write("id,name,value\n1,Alice,10.5\n2,Bob,20.0\n3,Charlie,15.75\n")
         dsv_path = Path(f.name)
 
     # Create test config file
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
         config = {"data_lake_path": temp_dir}
         json.dump(config, f)
         config_path = Path(f.name)
 
     try:
         # Test with verbose output
-        with patch('builtins.print') as mock_print:
-            run_profiling(
-                dsv_path=dsv_path,
-                config_path=config_path,
-                verbose=True
-            )
+        with patch("builtins.print") as mock_print:
+            run_profiling(dsv_path=dsv_path, config_path=config_path, verbose=True)
 
         # Verify print calls were made for verbose output
         print_calls = [call[0][0] for call in mock_print.call_args_list]
@@ -232,10 +227,12 @@ def test_run_profiling_success():
 
         # Wait a moment for any file handles to be released
         import time
+
         time.sleep(0.1)
 
         try:
             import shutil
+
             shutil.rmtree(temp_dir)
         except (OSError, PermissionError):
             # On Windows, sometimes files are still locked
@@ -252,18 +249,15 @@ def test_run_profiling_success():
                 pass  # Give up if we can't clean up
 
 
-@patch('splurge_data_profiler.cli.load_config')
+@patch("splurge_data_profiler.cli.load_config")
 def test_run_profiling_config_error(mock_load_config):
     """Test profiling with configuration error."""
     from splurge_data_profiler.exceptions import ConfigurationError
+
     mock_load_config.side_effect = ConfigurationError("Config not found")
 
-    with patch('sys.exit') as mock_exit, patch('builtins.print') as mock_print:
-        run_profiling(
-            dsv_path=Path("test.csv"),
-            config_path=Path("config.json"),
-            verbose=False
-        )
+    with patch("sys.exit") as mock_exit, patch("builtins.print") as mock_print:
+        run_profiling(dsv_path=Path("test.csv"), config_path=Path("config.json"), verbose=False)
 
         mock_print.assert_called()
         mock_exit.assert_called_once_with(1)

@@ -19,6 +19,7 @@ def temp_data_lake_path():
     # Cleanup
     try:
         import shutil
+
         shutil.rmtree(temp_dir)
     except OSError:
         pass
@@ -28,13 +29,10 @@ def create_test_profiler(data_lake_path: Path) -> Profiler:
     """Helper function to create a test profiler with minimal data."""
     temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
     try:
-        with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
-            f.write('id\n1\n')
+        with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
+            f.write("id\n1\n")
         dsv_source = DsvSource(temp_path)
-        data_lake = DataLakeFactory.from_dsv_source(
-            dsv_source=dsv_source,
-            data_lake_path=data_lake_path
-        )
+        data_lake = DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=data_lake_path)
         return Profiler(data_lake=data_lake)
     finally:
         try:
@@ -48,8 +46,15 @@ def test_cast_value_none_input(temp_data_lake_path):
     profiler = create_test_profiler(temp_data_lake_path)
 
     # Test None input for all data types
-    for data_type in [DataType.INTEGER, DataType.FLOAT, DataType.BOOLEAN,
-                     DataType.DATE, DataType.TIME, DataType.DATETIME, DataType.TEXT]:
+    for data_type in [
+        DataType.INTEGER,
+        DataType.FLOAT,
+        DataType.BOOLEAN,
+        DataType.DATE,
+        DataType.TIME,
+        DataType.DATETIME,
+        DataType.TEXT,
+    ]:
         result = profiler._cast_value(None, target_type=data_type)
         assert result is None, f"None input should return None for {data_type}"
 
@@ -59,8 +64,15 @@ def test_cast_value_empty_string(temp_data_lake_path):
     profiler = create_test_profiler(temp_data_lake_path)
 
     # Test empty string input for all data types
-    for data_type in [DataType.INTEGER, DataType.FLOAT, DataType.BOOLEAN,
-                     DataType.DATE, DataType.TIME, DataType.DATETIME, DataType.TEXT]:
+    for data_type in [
+        DataType.INTEGER,
+        DataType.FLOAT,
+        DataType.BOOLEAN,
+        DataType.DATE,
+        DataType.TIME,
+        DataType.DATETIME,
+        DataType.TEXT,
+    ]:
         result = profiler._cast_value("", target_type=data_type)
         assert result is None, f"Empty string should return None for {data_type}"
 
@@ -75,7 +87,7 @@ def test_cast_value_integer_conversion(temp_data_lake_path):
         ("-456", -456),
         ("0", 0),
         ("  789  ", 789),  # With whitespace
-        ("00123", 123),     # Leading zeros
+        ("00123", 123),  # Leading zeros
     ]
 
     for input_str, expected in valid_integers:
@@ -84,11 +96,11 @@ def test_cast_value_integer_conversion(temp_data_lake_path):
 
     # Test invalid integer conversions
     invalid_integers = [
-        "123.45",      # Float
-        "abc",         # Text
-        "12.3.4",      # Invalid format
-        "",            # Empty
-        " ",           # Whitespace
+        "123.45",  # Float
+        "abc",  # Text
+        "12.3.4",  # Invalid format
+        "",  # Empty
+        " ",  # Whitespace
     ]
 
     for input_str in invalid_integers:
@@ -101,18 +113,14 @@ def test_cast_value_boolean_conversion(temp_data_lake_path):
     profiler = create_test_profiler(temp_data_lake_path)
 
     # Test true values (only lowercase versions are accepted)
-    true_values = [
-        "true", "yes", "y", "1", "on"
-    ]
+    true_values = ["true", "yes", "y", "1", "on"]
 
     for input_str in true_values:
         result = profiler._cast_value(input_str, target_type=DataType.BOOLEAN)
         assert result is True, f"'{input_str}' should convert to True"
 
     # Test false values (only lowercase versions are accepted)
-    false_values = [
-        "false", "no", "n", "0", "off"
-    ]
+    false_values = ["false", "no", "n", "0", "off"]
 
     for input_str in false_values:
         result = profiler._cast_value(input_str, target_type=DataType.BOOLEAN)
@@ -120,18 +128,18 @@ def test_cast_value_boolean_conversion(temp_data_lake_path):
 
     # Test uppercase/mixed case values (some are accepted by String.to_bool)
     mixed_case_cases = [
-        ("True", True),    # Accepted
-        ("TRUE", True),    # Accepted
-        ("T", None),       # Not accepted (single char, uppercase only)
-        ("Yes", True),     # Accepted
-        ("YES", True),     # Accepted
-        ("Y", True),       # Accepted (lowercases to 'y')
+        ("True", True),  # Accepted
+        ("TRUE", True),  # Accepted
+        ("T", None),  # Not accepted (single char, uppercase only)
+        ("Yes", True),  # Accepted
+        ("YES", True),  # Accepted
+        ("Y", True),  # Accepted (lowercases to 'y')
         ("False", False),  # Accepted
         ("FALSE", False),  # Accepted
-        ("F", None),       # Not accepted (single char, uppercase only)
-        ("No", False),     # Accepted
-        ("NO", False),     # Accepted (lowercases to 'no')
-        ("N", False),      # Accepted (lowercases to 'n')
+        ("F", None),  # Not accepted (single char, uppercase only)
+        ("No", False),  # Accepted
+        ("NO", False),  # Accepted (lowercases to 'no')
+        ("N", False),  # Accepted (lowercases to 'n')
     ]
 
     for input_str, expected in mixed_case_cases:

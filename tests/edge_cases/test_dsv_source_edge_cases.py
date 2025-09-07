@@ -17,8 +17,8 @@ from splurge_data_profiler.source import DataType, DsvSource
 def temp_csv_file():
     """Create a temporary CSV file for testing."""
     temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
-    with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
-        f.write('id,name,value\n1,Alice,100\n2,Bob,200\n')
+    with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
+        f.write("id,name,value\n1,Alice,100\n2,Bob,200\n")
     test_file_path = Path(temp_path)
 
     yield test_file_path
@@ -33,6 +33,7 @@ def temp_csv_file():
 def test_dsv_source_nonexistent_file():
     """Test DsvSource with nonexistent file."""
     from splurge_data_profiler.exceptions import FileProcessingError
+
     nonexistent_path = Path("/nonexistent/path/file.csv")
 
     with pytest.raises(FileProcessingError):
@@ -62,16 +63,16 @@ def test_dsv_source_header_only_file():
     # Create a file with only headers
     temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
     try:
-        with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
-            f.write('id,name,value\n')
+        with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
+            f.write("id,name,value\n")
         header_path = Path(temp_path)
 
         source = DsvSource(header_path)
         # Should create columns from header
         assert len(source.columns) == 3
-        assert source.columns[0].name == 'id'
-        assert source.columns[1].name == 'name'
-        assert source.columns[2].name == 'value'
+        assert source.columns[0].name == "id"
+        assert source.columns[1].name == "name"
+        assert source.columns[2].name == "value"
 
     finally:
         try:
@@ -85,12 +86,12 @@ def test_dsv_source_malformed_delimiter():
     # Create a file with inconsistent delimiters
     temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
     try:
-        with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
-            f.write('id,name,value\n1,Alice,100\n2,Bob;200\n3,Charlie,300\n')
+        with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
+            f.write("id,name,value\n1,Alice,100\n2,Bob;200\n3,Charlie,300\n")
         malformed_path = Path(temp_path)
 
         # Should still parse correctly with comma delimiter
-        source = DsvSource(malformed_path, delimiter=',')
+        source = DsvSource(malformed_path, delimiter=",")
         assert len(source.columns) == 3
 
     finally:
@@ -105,18 +106,19 @@ def test_dsv_source_encoding_error():
     # Create a file with UTF-8 content
     temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
     try:
-        with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
-            f.write('id,name\n1,José\n2,François\n')
+        with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
+            f.write("id,name\n1,José\n2,François\n")
         utf8_path = Path(temp_path)
 
         # Should work with correct encoding
-        source = DsvSource(utf8_path, encoding='utf-8')
+        source = DsvSource(utf8_path, encoding="utf-8")
         assert len(source.columns) == 2
 
         # Should fail with wrong encoding
         from splurge_data_profiler.exceptions import FileProcessingError
+
         with pytest.raises(FileProcessingError):
-            DsvSource(utf8_path, encoding='ascii')
+            DsvSource(utf8_path, encoding="ascii")
 
     finally:
         try:
@@ -130,20 +132,20 @@ def test_dsv_source_skip_rows_edge_cases():
     # Create a file with multiple header and footer rows
     temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
     try:
-        with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
-            f.write('# Comment line 1\n')
-            f.write('# Comment line 2\n')
-            f.write('id,name,value\n')
-            f.write('1,Alice,100\n')
-            f.write('2,Bob,200\n')
-            f.write('# Footer comment\n')
-            f.write('# Another footer\n')
+        with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
+            f.write("# Comment line 1\n")
+            f.write("# Comment line 2\n")
+            f.write("id,name,value\n")
+            f.write("1,Alice,100\n")
+            f.write("2,Bob,200\n")
+            f.write("# Footer comment\n")
+            f.write("# Another footer\n")
         skip_path = Path(temp_path)
 
         # Skip 2 header rows
         source = DsvSource(skip_path, skip_header_rows=2)
         assert len(source.columns) == 3
-        assert source.columns[0].name == 'id'
+        assert source.columns[0].name == "id"
 
     finally:
         try:
@@ -157,8 +159,8 @@ def test_dsv_source_large_skip_values():
     # Create a small file
     temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
     try:
-        with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
-            f.write('id,name\n1,Alice\n')
+        with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
+            f.write("id,name\n1,Alice\n")
         small_path = Path(temp_path)
 
         # Skip more rows than exist - should handle gracefully
@@ -178,19 +180,19 @@ def test_dsv_source_whitespace_handling():
     # Create a file with various whitespace scenarios
     temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
     try:
-        with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
-            f.write('  id  ,  name  ,  value  \n')  # Header with whitespace
-            f.write('  1  ,  Alice  ,  100  \n')    # Data with whitespace
-            f.write('  2  ,  Bob  ,  200  \n')
+        with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
+            f.write("  id  ,  name  ,  value  \n")  # Header with whitespace
+            f.write("  1  ,  Alice  ,  100  \n")  # Data with whitespace
+            f.write("  2  ,  Bob  ,  200  \n")
         ws_path = Path(temp_path)
 
         # With strip=True (default)
         source_strip = DsvSource(ws_path, strip=True)
-        assert source_strip.columns[0].name == 'id'  # Should be stripped
+        assert source_strip.columns[0].name == "id"  # Should be stripped
 
         # With strip=False
         source_no_strip = DsvSource(ws_path, strip=False)
-        assert source_no_strip.columns[0].name == 'id'  # Column names are always stripped
+        assert source_no_strip.columns[0].name == "id"  # Column names are always stripped
 
     finally:
         try:
@@ -204,7 +206,7 @@ def test_dsv_source_bookend_edge_cases():
     # Create a file with various quoting scenarios
     temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
     try:
-        with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
+        with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
             f.write('"id","name","value"\n')
             f.write('"1","Alice","100"\n')
             f.write('"2","Bob","200"\n')
@@ -231,11 +233,11 @@ def test_dsv_source_mixed_data_types():
     # Create a file with mixed data types
     temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
     try:
-        with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
-            f.write('id,name,value,active\n')
-            f.write('1,Alice,100.5,true\n')
-            f.write('2,Bob,200,false\n')
-            f.write('3,Charlie,300.75,1\n')
+        with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
+            f.write("id,name,value,active\n")
+            f.write("1,Alice,100.5,true\n")
+            f.write("2,Bob,200,false\n")
+            f.write("3,Charlie,300.75,1\n")
         mixed_path = Path(temp_path)
 
         source = DsvSource(mixed_path)

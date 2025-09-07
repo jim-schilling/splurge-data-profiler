@@ -21,24 +21,22 @@ def temp_sqlite_data_lake():
     engine = create_engine(db_url)
     metadata = MetaData()
     Table(
-        db_table, metadata,
+        db_table,
+        metadata,
         SAColumn("id", String, primary_key=True),
         SAColumn("name", String, nullable=True),
     )
     # Create a second table for equality testing
     Table(
-        "different_table", metadata,
+        "different_table",
+        metadata,
         SAColumn("id", String, primary_key=True),
         SAColumn("description", String, nullable=True),
     )
     metadata.create_all(engine)
 
     # Create DbSource and DataLake
-    db_source = DbSource(
-        db_url=db_url,
-        db_schema=db_schema,
-        db_table=db_table
-    )
+    db_source = DbSource(db_url=db_url, db_schema=db_schema, db_table=db_table)
     data_lake = DataLake(db_source=db_source)
 
     yield data_lake, db_source, db_url, db_schema, db_table
@@ -97,11 +95,7 @@ def test_data_lake_equality(temp_sqlite_data_lake):
     assert data_lake1 == data_lake2
 
     # Create a different db_source using the different table in the same database
-    different_db_source = DbSource(
-        db_url=db_url,
-        db_schema=None,
-        db_table="different_table"
-    )
+    different_db_source = DbSource(db_url=db_url, db_schema=None, db_table="different_table")
     data_lake3 = DataLake(db_source=different_db_source)
 
     # They should not be equal since they have different db_sources

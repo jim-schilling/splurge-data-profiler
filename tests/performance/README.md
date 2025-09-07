@@ -4,19 +4,13 @@ This directory contains performance tests for the splurge-data-profiler package.
 
 ## Test Files
 
-### `test_basic_performance.py`
-Basic performance tests that don't require external dependencies. Tests:
-- Performance with different dataset sizes (1K, 5K, 10K, 25K rows)
-- Adaptive sampling efficiency (see below for current rules)
-- Operation breakdown timing
-- Repeated operation consistency
-
 ### `test_performance_benchmarks.py`
-Comprehensive performance benchmarks with advanced features. Tests:
-- Performance with larger datasets (10K, 25K, 50K, 100K, 250K, 500K rows)
-- Adaptive sampling scaling analysis (see below for current rules)
-- Memory efficiency (indirect testing)
-- Concurrent processing capabilities
+Comprehensive performance tests covering all dataset sizes and scenarios. Tests:
+- Performance with different dataset sizes (1K, 5K, 10K, 20K, 50K, 100K rows)
+- Adaptive sampling efficiency and scaling analysis
+- Memory efficiency testing
+- Operation breakdown timing
+- Data integrity verification
 
 ## Adaptive Sampling (Current Implementation)
 
@@ -44,7 +38,6 @@ python tests/run_tests.py performance
 
 ### Run specific performance test file:
 ```bash
-python -m pytest tests/performance/test_basic_performance.py
 python -m pytest tests/performance/test_performance_benchmarks.py
 ```
 

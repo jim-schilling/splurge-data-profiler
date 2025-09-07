@@ -11,12 +11,12 @@ from pathlib import Path
 def _find_project_root() -> Path:
     """Find the project root directory by looking for pyproject.toml."""
     current_path = Path(__file__).parent
-    
+
     # Walk up the directory tree looking for pyproject.toml
     for parent in current_path.parents:
         if (parent / "pyproject.toml").exists():
             return parent
-    
+
     # Fallback to assuming we're in tests/unit/ and project root is two levels up
     return Path(__file__).parent.parent.parent
 
@@ -158,7 +158,7 @@ class TestDocumentationContent:
             "Programmatic Usage",
             "Requirements",
             "Error Handling",
-            "API Reference"
+            "API Reference",
         ]
 
         for section in required_sections:

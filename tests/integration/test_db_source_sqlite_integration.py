@@ -26,7 +26,8 @@ def temp_sqlite_db():
     engine = create_engine(db_url)
     metadata = MetaData()
     Table(
-        db_table, metadata,
+        db_table,
+        metadata,
         SAColumn("id", String, primary_key=True),
         SAColumn("name", String, nullable=True),
     )

@@ -14,6 +14,7 @@ from splurge_data_profiler.profiler import Profiler
 
 # Test fixtures and helper functions
 
+
 @pytest.fixture(scope="module")
 def comprehensive_test_data():
     """Set up comprehensive test data for the entire test module."""
@@ -29,11 +30,8 @@ def comprehensive_test_data():
     _generate_comprehensive_csv(temp_fd)
 
     # Create DsvSource and DataLake
-    dsv_source = DsvSource(csv_path, delimiter='|', bookend='"')
-    data_lake = DataLakeFactory.from_dsv_source(
-        dsv_source=dsv_source,
-        data_lake_path=data_lake_path
-    )
+    dsv_source = DsvSource(csv_path, delimiter="|", bookend='"')
+    data_lake = DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=data_lake_path)
 
     yield temp_dir, temp_fd, temp_path, dsv_source, data_lake
 
@@ -58,6 +56,7 @@ def profiler_instance(comprehensive_test_data):
     _, _, _, dsv_source, data_lake = comprehensive_test_data
     return Profiler(data_lake=data_lake)
 
+
 def _generate_comprehensive_csv(temp_fd) -> None:
     """Generate a comprehensive CSV file with all data types and 1000 rows."""
     column_configs = [
@@ -66,34 +65,28 @@ def _generate_comprehensive_csv(temp_fd) -> None:
         ("text_names", "TEXT", _generate_name_values),
         ("text_emails", "TEXT", _generate_email_values),
         ("text_addresses", "TEXT", _generate_address_values),
-
         # INTEGER columns
         ("integer_small", "INTEGER", _generate_small_integer_values),
         ("integer_large", "INTEGER", _generate_large_integer_values),
         ("integer_negative", "INTEGER", _generate_negative_integer_values),
         ("integer_mixed", "INTEGER", _generate_mixed_integer_values),
-
         # FLOAT columns
         ("float_simple", "FLOAT", _generate_simple_float_values),
         ("float_precise", "FLOAT", _generate_precise_float_values),
         ("float_scientific", "FLOAT", _generate_scientific_float_values),
         ("float_currency", "FLOAT", _generate_currency_float_values),
-
         # BOOLEAN columns
         ("boolean_simple", "BOOLEAN", _generate_boolean_values),
         ("boolean_text", "BOOLEAN", _generate_boolean_text_values),
         ("boolean_mixed", "BOOLEAN", _generate_mixed_boolean_values),
-
         # DATE columns
         ("date_simple", "DATE", _generate_date_values),
         ("date_formatted", "DATE", _generate_formatted_date_values),
         ("date_mixed", "DATE", _generate_mixed_date_values),
-
         # TIME columns
         ("time_simple", "TIME", _generate_time_values),
         ("time_formatted", "TIME", _generate_formatted_time_values),
         ("time_mixed", "TIME", _generate_mixed_time_values),
-
         # DATETIME columns
         ("datetime_simple", "DATETIME", _generate_datetime_values),
         ("datetime_formatted", "DATETIME", _generate_formatted_datetime_values),
@@ -101,14 +94,15 @@ def _generate_comprehensive_csv(temp_fd) -> None:
     ]
     header = [config[0] for config in column_configs]
     # Use pipe as delimiter and double quote as bookend
-    delimiter = '|'
+    delimiter = "|"
     bookend = '"'
-    with os.fdopen(temp_fd, 'w', encoding='utf-8', newline='') as f:
+    with os.fdopen(temp_fd, "w", encoding="utf-8", newline="") as f:
         writer = csv.writer(f, delimiter=delimiter, quotechar=bookend, quoting=csv.QUOTE_ALL)
         writer.writerow(header)
         for i in range(1000):
             row_data = [str(generator_func(i)) for _, _, generator_func in column_configs]
             writer.writerow(row_data)
+
 
 def _generate_text_values(index: int) -> str:
     """Generate text values."""
@@ -122,9 +116,10 @@ def _generate_text_values(index: int) -> str:
         "laboris nisi ut aliquip ex ea commodo consequat",
         "Duis aute irure dolor in reprehenderit",
         "in voluptate velit esse cillum dolore",
-        "eu fugiat nulla pariatur"
+        "eu fugiat nulla pariatur",
     ]
     return texts[index % len(texts)]
+
 
 def _generate_name_values(index: int) -> str:
     """Generate name values."""
@@ -132,10 +127,12 @@ def _generate_name_values(index: int) -> str:
     last_names = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller"]
     return f"{first_names[index % len(first_names)]} {last_names[index % len(last_names)]}"
 
+
 def _generate_email_values(index: int) -> str:
     """Generate email values."""
     domains = ["example.com", "test.org", "sample.net", "demo.co.uk"]
     return f"user{index}@{domains[index % len(domains)]}"
+
 
 def _generate_address_values(index: int) -> str:
     """Generate address values."""
@@ -143,17 +140,21 @@ def _generate_address_values(index: int) -> str:
     cities = ["New York", "Los Angeles", "Chicago", "Houston"]
     return f"{streets[index % len(streets)]}, {cities[index % len(cities)]}"
 
+
 def _generate_small_integer_values(index: int) -> int:
     """Generate small integer values."""
     return index % 100
+
 
 def _generate_large_integer_values(index: int) -> int:
     """Generate large integer values."""
     return 1000000 + index
 
+
 def _generate_negative_integer_values(index: int) -> int:
     """Generate negative integer values."""
     return -1000 - index
+
 
 def _generate_mixed_integer_values(index: int) -> int:
     """Generate mixed integer values (including some text)."""
@@ -161,45 +162,55 @@ def _generate_mixed_integer_values(index: int) -> int:
         return f"text_{index}"
     return index * 10
 
+
 def _generate_simple_float_values(index: int) -> float:
     """Generate simple float values."""
     return index * 1.5
+
 
 def _generate_precise_float_values(index: int) -> float:
     """Generate precise float values."""
     return round(index * 3.14159, 5)
 
+
 def _generate_scientific_float_values(index: int) -> float:
     """Generate scientific notation float values."""
     return index * 1e6
+
 
 def _generate_currency_float_values(index: int) -> float:
     """Generate currency-like float values."""
     return round(index * 10.99, 2)
 
+
 def _generate_boolean_values(index: int) -> bool:
     """Generate boolean values."""
     return bool(index % 2)
 
+
 def _generate_boolean_text_values(index: int) -> str:
     """Generate boolean text values."""
     return "true" if index % 2 else "false"
+
 
 def _generate_mixed_boolean_values(index: int) -> str:
     """Generate mixed boolean values."""
     values = ["true", "false", "yes", "no", "1", "0", "Y", "N"]
     return values[index % len(values)]
 
+
 def _generate_date_values(index: int) -> date:
     """Generate date values."""
     start_date = date(2020, 1, 1)
     return start_date + timedelta(days=index)
+
 
 def _generate_formatted_date_values(index: int) -> str:
     """Generate formatted date values."""
     start_date = date(2020, 1, 1)
     date_obj = start_date + timedelta(days=index)
     return date_obj.strftime("%m/%d/%Y")
+
 
 def _generate_mixed_date_values(index: int) -> str:
     """Generate mixed date values."""
@@ -209,14 +220,17 @@ def _generate_mixed_date_values(index: int) -> str:
     date_obj = start_date + timedelta(days=index)
     return date_obj.strftime("%Y-%m-%d")
 
+
 def _generate_time_values(index: int) -> time:
     """Generate time values."""
     return time(hour=index % 24, minute=index % 60, second=index % 60)
+
 
 def _generate_formatted_time_values(index: int) -> str:
     """Generate formatted time values."""
     time_obj = time(hour=index % 24, minute=index % 60, second=index % 60)
     return time_obj.strftime("%H:%M:%S")
+
 
 def _generate_mixed_time_values(index: int) -> str:
     """Generate mixed time values."""
@@ -225,17 +239,20 @@ def _generate_mixed_time_values(index: int) -> str:
     time_obj = time(hour=index % 24, minute=index % 60, second=index % 60)
     return time_obj.strftime("%I:%M %p")
 
+
 def _generate_datetime_values(index: int) -> str:
     """Generate datetime values in ISO 8601 format."""
     start_datetime = datetime(2020, 1, 1, 0, 0, 0)
     datetime_obj = start_datetime + timedelta(hours=index)
     return datetime_obj.strftime("%Y-%m-%dT%H:%M:%S")
 
+
 def _generate_formatted_datetime_values(index: int) -> str:
     """Generate formatted datetime values in ISO 8601 format."""
     start_datetime = datetime(2020, 1, 1, 0, 0, 0)
     datetime_obj = start_datetime + timedelta(hours=index)
     return datetime_obj.strftime("%Y-%m-%dT%H:%M:%S")
+
 
 def _generate_mixed_datetime_values(index: int) -> str:
     """Generate mixed datetime values."""
@@ -244,6 +261,7 @@ def _generate_mixed_datetime_values(index: int) -> str:
     start_datetime = datetime(2020, 1, 1, 0, 0, 0)
     datetime_obj = start_datetime + timedelta(hours=index)
     return datetime_obj.strftime("%m/%d/%Y %I:%M %p")
+
 
 def test_profiler_initialization(profiler_instance, comprehensive_test_data) -> None:
     """Test Profiler initialization."""
@@ -256,11 +274,13 @@ def test_profiler_initialization(profiler_instance, comprehensive_test_data) -> 
         assert column.name == dsv_source.columns[i].name
         assert column is not dsv_source.columns[i]
 
+
 def test_profiler_string_representation(profiler_instance, comprehensive_test_data) -> None:
     """Test Profiler string representation."""
     _, _, _, _, data_lake = comprehensive_test_data
     expected_str = f"Profiler(data_lake={data_lake}, profiled_columns={len(profiler_instance.profiled_columns)})"
     assert str(profiler_instance) == expected_str
+
 
 def test_profiler_repr_representation(profiler_instance) -> None:
     """Test Profiler repr representation."""
@@ -268,6 +288,7 @@ def test_profiler_repr_representation(profiler_instance) -> None:
     assert "Profiler" in repr_str
     assert "data_lake=" in repr_str
     assert "profiled_columns=" in repr_str
+
 
 def test_profiler_equality(comprehensive_test_data) -> None:
     """Test Profiler equality comparison."""
@@ -285,10 +306,12 @@ def test_profiler_equality(comprehensive_test_data) -> None:
     # They should not be equal since profiler1 has profiled columns and profiler3 doesn't
     assert profiler1 != profiler3
 
+
 def test_profiler_equality_different_type(profiler_instance) -> None:
     """Test Profiler equality with different type."""
     other = "not a profiler"
     assert profiler_instance != other
+
 
 def test_profiler_comprehensive_profiling(profiler_instance) -> None:
     """Test comprehensive profiling with all data types."""
@@ -308,34 +331,28 @@ def test_profiler_comprehensive_profiling(profiler_instance) -> None:
         "text_names": DataType.TEXT,
         "text_emails": DataType.TEXT,
         "text_addresses": DataType.TEXT,
-
         # INTEGER columns
         "integer_small": DataType.INTEGER,
         "integer_large": DataType.INTEGER,
         "integer_negative": DataType.INTEGER,
         "integer_mixed": DataType.TEXT,  # Mixed with text
-
         # FLOAT columns
         "float_simple": DataType.FLOAT,
         "float_precise": DataType.FLOAT,
         "float_scientific": DataType.FLOAT,
         "float_currency": DataType.FLOAT,
-
         # BOOLEAN columns
         "boolean_simple": DataType.BOOLEAN,
         "boolean_text": DataType.BOOLEAN,
         "boolean_mixed": DataType.TEXT,  # Mixed formats
-
         # DATE columns
         "date_simple": DataType.DATE,
         "date_formatted": DataType.DATE,
         "date_mixed": DataType.TEXT,  # Mixed with invalid dates
-
         # TIME columns
         "time_simple": DataType.TIME,
         "time_formatted": DataType.TIME,
         "time_mixed": DataType.TEXT,  # Mixed with invalid times
-
         # DATETIME columns
         "datetime_simple": DataType.DATETIME,
         "datetime_formatted": DataType.DATETIME,
@@ -345,9 +362,10 @@ def test_profiler_comprehensive_profiling(profiler_instance) -> None:
     # Verify each column's inferred type
     for column in profiled_columns:
         if column.name in expected_types:
-            assert (
-                column.inferred_type == expected_types[column.name]
-            ), f"Column {column.name} should be {expected_types[column.name]} but got {column.inferred_type}"
+            assert column.inferred_type == expected_types[column.name], (
+                f"Column {column.name} should be {expected_types[column.name]} but got {column.inferred_type}"
+            )
+
 
 def test_profiler_sample_size_effectiveness(profiler_instance) -> None:
     """Test that different sample sizes produce consistent results."""
@@ -366,12 +384,9 @@ def test_profiler_sample_size_effectiveness(profiler_instance) -> None:
     for i, (col_100, col_500, col_1000) in enumerate(zip(results_100, results_500, results_1000)):
         column_name = profiler_instance.profiled_columns[i].name
         if "mixed" not in column_name:  # Skip mixed columns
-            assert (
-                col_100 == col_500
-            ), f"Sample size 100 vs 500 inconsistent for {column_name}"
-            assert (
-                col_500 == col_1000
-            ), f"Sample size 500 vs 1000 inconsistent for {column_name}"
+            assert col_100 == col_500, f"Sample size 100 vs 500 inconsistent for {column_name}"
+            assert col_500 == col_1000, f"Sample size 500 vs 1000 inconsistent for {column_name}"
+
 
 def test_profiler_original_data_unmodified(profiler_instance, comprehensive_test_data) -> None:
     """Test that original DataLake and DbSource remain unmodified."""
@@ -389,6 +404,7 @@ def test_profiler_original_data_unmodified(profiler_instance, comprehensive_test
     # Check that profiled columns have updated types
     profiled_types = [col.inferred_type for col in profiler_instance.profiled_columns]
     assert original_types != profiled_types
+
 
 def test_profiler_large_dataset_performance(profiler_instance) -> None:
     """Test profiling performance with large dataset."""
@@ -408,14 +424,12 @@ def test_profiler_large_dataset_performance(profiler_instance) -> None:
     profiled_columns = profiler_instance.profiled_columns
     assert any(col.inferred_type != DataType.TEXT for col in profiled_columns)
 
+
 def test_profiler_error_handling(comprehensive_test_data) -> None:
     """Test profiler error handling with invalid database connection."""
     _, _, _, dsv_source, _ = comprehensive_test_data
     # Create profiler with invalid data lake
-    invalid_data_lake = DataLakeFactory.from_dsv_source(
-        dsv_source=dsv_source,
-        data_lake_path=Path(tempfile.mkdtemp())
-    )
+    invalid_data_lake = DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=Path(tempfile.mkdtemp()))
 
     # Manually corrupt the database URL
     invalid_data_lake._db_url = "sqlite:///nonexistent.db"
@@ -424,8 +438,10 @@ def test_profiler_error_handling(comprehensive_test_data) -> None:
 
     # Should raise DatabaseError when trying to profile
     from splurge_data_profiler.exceptions import DatabaseError
+
     with pytest.raises(DatabaseError):
         invalid_profiler.profile(sample_size=1000)
+
 
 def test_profiler_create_inferred_table(profiler_instance, comprehensive_test_data) -> None:
     """Test creating inferred table with cast columns."""
@@ -436,6 +452,7 @@ def test_profiler_create_inferred_table(profiler_instance, comprehensive_test_da
     # Add a short delay and force engine disposal to avoid SQLite locking
     import time
     from sqlalchemy import create_engine
+
     engine = create_engine(data_lake.db_url)
     engine.dispose()
     time.sleep(0.2)
@@ -461,7 +478,7 @@ def test_profiler_create_inferred_table(profiler_instance, comprehensive_test_da
             assert len(columns_info) == 48
 
             # Verify column structure
-            column_names = [col['name'] for col in columns_info]
+            column_names = [col["name"] for col in columns_info]
 
             # Check that we have both original and cast columns
             for column in profiler_instance.profiled_columns:
@@ -483,14 +500,14 @@ def test_profiler_create_inferred_table(profiler_instance, comprehensive_test_da
     finally:
         engine.dispose()
 
+
 def _verify_casting_examples(connection, table_name: str) -> None:
     """Verify specific casting examples work correctly."""
 
     # Test integer casting
-    result = connection.execute(text(
-        f"SELECT integer_small, integer_small_cast FROM {table_name} "
-        "WHERE integer_small IS NOT NULL LIMIT 5"
-    ))
+    result = connection.execute(
+        text(f"SELECT integer_small, integer_small_cast FROM {table_name} WHERE integer_small IS NOT NULL LIMIT 5")
+    )
     rows = result.fetchall()
     for row in rows:
         original, cast_value = row
@@ -499,10 +516,9 @@ def _verify_casting_examples(connection, table_name: str) -> None:
             assert int(original) == cast_value
 
     # Test float casting
-    result = connection.execute(text(
-        f"SELECT float_simple, float_simple_cast FROM {table_name} "
-        "WHERE float_simple IS NOT NULL LIMIT 5"
-    ))
+    result = connection.execute(
+        text(f"SELECT float_simple, float_simple_cast FROM {table_name} WHERE float_simple IS NOT NULL LIMIT 5")
+    )
     rows = result.fetchall()
     for row in rows:
         original, cast_value = row
@@ -511,10 +527,9 @@ def _verify_casting_examples(connection, table_name: str) -> None:
             assert abs(float(original) - cast_value) < 1e-6
 
     # Test boolean casting
-    result = connection.execute(text(
-        f"SELECT boolean_simple, boolean_simple_cast FROM {table_name} "
-        "WHERE boolean_simple IS NOT NULL LIMIT 5"
-    ))
+    result = connection.execute(
+        text(f"SELECT boolean_simple, boolean_simple_cast FROM {table_name} WHERE boolean_simple IS NOT NULL LIMIT 5")
+    )
     rows = result.fetchall()
     for row in rows:
         original, cast_value = row
@@ -525,14 +540,13 @@ def _verify_casting_examples(connection, table_name: str) -> None:
                 cast_value = bool(cast_value)
             assert isinstance(cast_value, bool)
             # Boolean casting should work correctly
-            expected_bool = original.lower() in ['true', '1', 'yes', 'y']
+            expected_bool = original.lower() in ["true", "1", "yes", "y"]
             assert expected_bool == cast_value
 
     # Test date casting
-    result = connection.execute(text(
-        f"SELECT date_simple, date_simple_cast FROM {table_name} "
-        "WHERE date_simple IS NOT NULL LIMIT 5"
-    ))
+    result = connection.execute(
+        text(f"SELECT date_simple, date_simple_cast FROM {table_name} WHERE date_simple IS NOT NULL LIMIT 5")
+    )
     rows = result.fetchall()
     for row in rows:
         original, cast_value = row
@@ -541,18 +555,19 @@ def _verify_casting_examples(connection, table_name: str) -> None:
             assert isinstance(cast_value, str)
             # Should be in YYYY-MM-DD format
             import re
-            assert re.match(r'^\d{4}-\d{2}-\d{2}$', cast_value)
+
+            assert re.match(r"^\d{4}-\d{2}-\d{2}$", cast_value)
 
     # Test text columns (should remain as text)
-    result = connection.execute(text(
-        f"SELECT text_simple, text_simple_cast FROM {table_name} "
-        "WHERE text_simple IS NOT NULL LIMIT 5"
-    ))
+    result = connection.execute(
+        text(f"SELECT text_simple, text_simple_cast FROM {table_name} WHERE text_simple IS NOT NULL LIMIT 5")
+    )
     rows = result.fetchall()
     for row in rows:
         original, cast_value = row
         if original:
             assert original == cast_value
+
 
 def test_profiler_empty_table() -> None:
     """Test profiling on an empty table."""
@@ -563,7 +578,8 @@ def test_profiler_empty_table() -> None:
     empty_table_name = "empty_table"
     metadata = MetaData()
     Table(
-        empty_table_name, metadata,
+        empty_table_name,
+        metadata,
         Column("id", String, primary_key=True),
     )
     metadata.create_all(engine)
@@ -571,11 +587,7 @@ def test_profiler_empty_table() -> None:
 
     try:
         # Create a DataLake for the empty table
-        db_source = DbSource(
-            db_url=db_url,
-            db_schema=None,
-            db_table=empty_table_name
-        )
+        db_source = DbSource(db_url=db_url, db_schema=None, db_table=empty_table_name)
         data_lake = DataLake(db_source=db_source)
         profiler = Profiler(data_lake=data_lake)
         # Should not raise, but profiled_columns should be empty or TEXT
@@ -589,6 +601,7 @@ def test_profiler_empty_table() -> None:
         except OSError:
             pass
 
+
 def test_profiler_all_nulls() -> None:
     """Test profiling on a table with only nulls."""
     # Create a new table in a separate database
@@ -598,7 +611,8 @@ def test_profiler_all_nulls() -> None:
     null_table_name = "null_table"
     metadata = MetaData()
     table = Table(
-        null_table_name, metadata,
+        null_table_name,
+        metadata,
         Column("id", String, primary_key=True),
         Column("value", String, nullable=True),
     )
@@ -609,11 +623,7 @@ def test_profiler_all_nulls() -> None:
     engine.dispose()
 
     try:
-        db_source = DbSource(
-            db_url=db_url,
-            db_schema=None,
-            db_table=null_table_name
-        )
+        db_source = DbSource(db_url=db_url, db_schema=None, db_table=null_table_name)
         data_lake = DataLake(db_source=db_source)
         profiler = Profiler(data_lake=data_lake)
         profiler.profile(sample_size=10)
@@ -635,6 +645,7 @@ def test_profiler_all_nulls() -> None:
         except OSError:
             pass
 
+
 def test_profiler_mixed_types() -> None:
     """Test profiling on a table with mixed types."""
     # Create a new table in a separate database
@@ -644,27 +655,27 @@ def test_profiler_mixed_types() -> None:
     mixed_table_name = "mixed_table"
     metadata = MetaData()
     table = Table(
-        mixed_table_name, metadata,
+        mixed_table_name,
+        metadata,
         Column("id", String, primary_key=True),
         Column("value", String, nullable=True),
     )
     metadata.create_all(engine)
     with engine.connect() as conn:
-        conn.execute(table.insert(), [
-            {"id": "1", "value": "123"},
-            {"id": "2", "value": "abc"},
-            {"id": "3", "value": "456.7"},
-            {"id": "4", "value": "True"},
-        ])
+        conn.execute(
+            table.insert(),
+            [
+                {"id": "1", "value": "123"},
+                {"id": "2", "value": "abc"},
+                {"id": "3", "value": "456.7"},
+                {"id": "4", "value": "True"},
+            ],
+        )
         conn.commit()
     engine.dispose()
 
     try:
-        db_source = DbSource(
-            db_url=db_url,
-            db_schema=None,
-            db_table=mixed_table_name
-        )
+        db_source = DbSource(db_url=db_url, db_schema=None, db_table=mixed_table_name)
         data_lake = DataLake(db_source=db_source)
         profiler = Profiler(data_lake=data_lake)
         profiler.profile(sample_size=10)
@@ -686,12 +697,10 @@ def test_profiler_mixed_types() -> None:
         except OSError:
             pass
 
+
 def test_profiler_db_connection_error() -> None:
     """Test profiler error on DB connection failure."""
     from splurge_data_profiler.exceptions import DatabaseError
+
     with pytest.raises(DatabaseError):
-        DbSource(
-            db_url="sqlite:///nonexistent.db",
-            db_schema=None,
-            db_table="no_table"
-        )
+        DbSource(db_url="sqlite:///nonexistent.db", db_schema=None, db_table="no_table")

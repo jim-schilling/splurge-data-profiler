@@ -13,7 +13,7 @@ class TestDataType:
             "FLOAT": "FLOAT",
             "INTEGER": "INTEGER",
             "TEXT": "TEXT",
-            "TIME": "TIME"
+            "TIME": "TIME",
         }
 
         for enum_name, expected_value in expected_values.items():

@@ -20,6 +20,7 @@ def temp_data_lake_dir():
     # Cleanup
     try:
         import shutil
+
         shutil.rmtree(temp_dir)
     except OSError:
         pass
@@ -29,16 +30,13 @@ def test_data_lake_engine_disposal(temp_data_lake_dir):
     """Test that database engines are properly disposed."""
     # Create a temporary CSV file
     temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
-    with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
-        f.write('id,name\n1,Alice\n2,Bob\n')
+    with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
+        f.write("id,name\n1,Alice\n2,Bob\n")
     csv_path = Path(temp_path)
 
     try:
         dsv_source = DsvSource(csv_path)
-        data_lake = DataLakeFactory.from_dsv_source(
-            dsv_source=dsv_source,
-            data_lake_path=temp_data_lake_dir
-        )
+        data_lake = DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=temp_data_lake_dir)
 
         # Check that we can access the database after creation
         engine = create_engine(data_lake.db_url)
@@ -59,16 +57,13 @@ def test_data_lake_multiple_connections(temp_data_lake_dir):
     """Test DataLake with multiple simultaneous connections."""
     # Create a temporary CSV file
     temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
-    with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
-        f.write('id,name,value\n1,Alice,100\n2,Bob,200\n3,Charlie,300\n')
+    with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
+        f.write("id,name,value\n1,Alice,100\n2,Bob,200\n3,Charlie,300\n")
     csv_path = Path(temp_path)
 
     try:
         dsv_source = DsvSource(csv_path)
-        data_lake = DataLakeFactory.from_dsv_source(
-            dsv_source=dsv_source,
-            data_lake_path=temp_data_lake_dir
-        )
+        data_lake = DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=temp_data_lake_dir)
 
         # Test multiple connections to the same database
         engines = []
@@ -102,18 +97,15 @@ def test_data_lake_concurrent_access(temp_data_lake_dir):
 
     # Create a temporary CSV file
     temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
-    with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
-        f.write('id,name\n')
+    with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
+        f.write("id,name\n")
         for i in range(100):
-            f.write(f'{i},Name{i}\n')
+            f.write(f"{i},Name{i}\n")
     csv_path = Path(temp_path)
 
     try:
         dsv_source = DsvSource(csv_path)
-        data_lake = DataLakeFactory.from_dsv_source(
-            dsv_source=dsv_source,
-            data_lake_path=temp_data_lake_dir
-        )
+        data_lake = DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=temp_data_lake_dir)
 
         results = []
         errors = []

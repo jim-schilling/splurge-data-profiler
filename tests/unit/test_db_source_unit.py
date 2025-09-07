@@ -28,13 +28,15 @@ class TestDbSource:
         self.engine = create_engine(self.db_url)
         metadata = MetaData()
         SATable(
-            self.db_table, metadata,
+            self.db_table,
+            metadata,
             SAColumn("id", String, primary_key=True),
             SAColumn("name", String, nullable=True),
         )
         # Create a second table for equality testing
         SATable(
-            "different_table", metadata,
+            "different_table",
+            metadata,
             SAColumn("id", String, primary_key=True),
             SAColumn("description", String, nullable=True),
         )
@@ -57,22 +59,14 @@ class TestDbSource:
     def test_db_source_initialization_connection_error(self) -> None:
         """Test DbSource initialization with invalid database URL."""
         try:
-            DbSource(
-                db_url="sqlite:///nonexistent.db",
-                db_schema=None,
-                db_table="nonexistent_table"
-            )
+            DbSource(db_url="sqlite:///nonexistent.db", db_schema=None, db_table="nonexistent_table")
             assert False, "Expected DatabaseError was not raised"
         except DatabaseError:
             pass
 
     def test_db_source_properties(self) -> None:
         """Test DbSource properties."""
-        source = DbSource(
-            db_url=self.db_url,
-            db_schema=self.db_schema,
-            db_table=self.db_table
-        )
+        source = DbSource(db_url=self.db_url, db_schema=self.db_schema, db_table=self.db_table)
 
         assert source.db_url == self.db_url
         assert source.db_schema == self.db_schema
@@ -92,17 +86,14 @@ class TestDbSource:
             engine = create_engine(db_url)
             metadata = MetaData()
             SATable(
-                "test_table", metadata,
+                "test_table",
+                metadata,
                 SAColumn("id", String, primary_key=True),
             )
             metadata.create_all(engine)
             engine.dispose()
 
-            source = DbSource(
-                db_url=db_url,
-                db_schema=None,
-                db_table="test_table"
-            )
+            source = DbSource(db_url=db_url, db_schema=None, db_table="test_table")
 
             # Test the new DbSource __str__ method
             expected_str = f"DbSource(db_url={db_url}, schema=None, table=test_table, columns=1)"
@@ -123,45 +114,25 @@ class TestDbSource:
 
     def test_db_source_equality(self) -> None:
         """Test DbSource equality comparison."""
-        source1 = DbSource(
-            db_url=self.db_url,
-            db_schema=self.db_schema,
-            db_table=self.db_table
-        )
-        source2 = DbSource(
-            db_url=self.db_url,
-            db_schema=self.db_schema,
-            db_table=self.db_table
-        )
+        source1 = DbSource(db_url=self.db_url, db_schema=self.db_schema, db_table=self.db_table)
+        source2 = DbSource(db_url=self.db_url, db_schema=self.db_schema, db_table=self.db_table)
 
         # Create a different source with different table name but same database
-        source3 = DbSource(
-            db_url=self.db_url,
-            db_schema=self.db_schema,
-            db_table="different_table"
-        )
+        source3 = DbSource(db_url=self.db_url, db_schema=self.db_schema, db_table="different_table")
 
         assert source1 == source2
         assert source1 != source3
 
     def test_db_source_equality_different_type(self) -> None:
         """Test DbSource equality with different type."""
-        source = DbSource(
-            db_url=self.db_url,
-            db_schema=self.db_schema,
-            db_table=self.db_table
-        )
+        source = DbSource(db_url=self.db_url, db_schema=self.db_schema, db_table=self.db_table)
         other = "not a db source"
 
         assert source != other
 
     def test_db_source_repr_representation(self) -> None:
         """Test DbSource repr representation."""
-        source = DbSource(
-            db_url=self.db_url,
-            db_schema=self.db_schema,
-            db_table=self.db_table
-        )
+        source = DbSource(db_url=self.db_url, db_schema=self.db_schema, db_table=self.db_table)
 
         # Test that repr shows detailed information
         repr_str = repr(source)
@@ -169,5 +140,3 @@ class TestDbSource:
         assert self.db_url in repr_str
         assert self.db_table in repr_str
         assert "columns=" in repr_str
-
-

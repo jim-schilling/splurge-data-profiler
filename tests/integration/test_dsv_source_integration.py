@@ -17,8 +17,8 @@ from splurge_data_profiler.source import DsvSource
 def temp_csv_file():
     """Create a temporary CSV file for testing."""
     temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
-    with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
-        f.write('id,name\n1,Alice\n2,Bob\n')
+    with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
+        f.write("id,name\n1,Alice\n2,Bob\n")
     file_path = Path(temp_path)
 
     yield file_path

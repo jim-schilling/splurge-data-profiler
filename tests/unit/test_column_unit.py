@@ -15,11 +15,7 @@ class TestColumn:
 
     def test_column_initialization_custom_values(self) -> None:
         """Test Column initialization with custom values."""
-        column = Column(
-            name="custom_column",
-            inferred_type=DataType.INTEGER,
-            is_nullable=False
-        )
+        column = Column(name="custom_column", inferred_type=DataType.INTEGER, is_nullable=False)
 
         assert column.name == "custom_column"
         assert column.inferred_type == DataType.INTEGER
@@ -37,5 +33,7 @@ class TestColumn:
         """Test Column repr representation."""
         column = Column("test_column", inferred_type=DataType.FLOAT, is_nullable=False)
 
-        expected_repr = "Column(name=test_column, inferred_type=DataType.FLOAT, raw_type=DataType.TEXT, is_nullable=False)"
+        expected_repr = (
+            "Column(name=test_column, inferred_type=DataType.FLOAT, raw_type=DataType.TEXT, is_nullable=False)"
+        )
         assert repr(column) == expected_repr

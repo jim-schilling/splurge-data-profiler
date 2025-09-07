@@ -14,16 +14,13 @@ import pytest
 
 
 def run_cli(args):
-    result = subprocess.run(
-        [sys.executable, "-m", "splurge_data_profiler", *args],
-        capture_output=True, text=True
-    )
+    result = subprocess.run([sys.executable, "-m", "splurge_data_profiler", *args], capture_output=True, text=True)
     return result
 
 
 def test_cli_create_config_command():
     """Test the create-config command."""
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
         output_path = f.name
 
     try:
@@ -32,7 +29,7 @@ def test_cli_create_config_command():
         assert "Sample configuration created" in result.stdout
 
         # Verify the file was created and is valid JSON
-        with open(output_path, 'r') as f:
+        with open(output_path, "r") as f:
             config = json.load(f)
         assert "data_lake_path" in config
         assert "dsv" in config
@@ -42,7 +39,7 @@ def test_cli_create_config_command():
 
 def test_cli_profile_command_missing_file():
     """Test profile command with missing DSV file."""
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
         config = {"data_lake_path": "./test"}
         json.dump(config, f)
         config_path = f.name
@@ -57,7 +54,7 @@ def test_cli_profile_command_missing_file():
 
 def test_cli_profile_command_missing_config():
     """Test profile command with missing config file."""
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
         f.write("id,name\n1,test\n")
         dsv_path = f.name
 
@@ -71,12 +68,12 @@ def test_cli_profile_command_missing_config():
 def test_cli_profile_command_success():
     """Test successful profile command."""
     # Create test DSV file
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
         f.write("id,name\n1,test\n2,example\n")
         dsv_path = f.name
 
     # Create test config file
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
         config = {"data_lake_path": "./test_lake"}
         json.dump(config, f)
         config_path = f.name
@@ -86,7 +83,7 @@ def test_cli_profile_command_success():
 
     try:
         # Update config to use temp directory
-        with open(config_path, 'w') as f:
+        with open(config_path, "w") as f:
             config["data_lake_path"] = temp_dir
             json.dump(config, f)
 
@@ -98,18 +95,19 @@ def test_cli_profile_command_success():
         os.unlink(dsv_path)
         os.unlink(config_path)
         import shutil
+
         shutil.rmtree(temp_dir)
 
 
 def test_cli_profile_command_verbose():
     """Test profile command with verbose output."""
     # Create test DSV file
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
         f.write("id,name\n1,test\n")
         dsv_path = f.name
 
     # Create test config file
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
         config = {"data_lake_path": "./test_lake"}
         json.dump(config, f)
         config_path = f.name
@@ -119,7 +117,7 @@ def test_cli_profile_command_verbose():
 
     try:
         # Update config to use temp directory
-        with open(config_path, 'w') as f:
+        with open(config_path, "w") as f:
             config["data_lake_path"] = temp_dir
             json.dump(config, f)
 
@@ -132,6 +130,7 @@ def test_cli_profile_command_verbose():
         os.unlink(dsv_path)
         os.unlink(config_path)
         import shutil
+
         shutil.rmtree(temp_dir)
 
 

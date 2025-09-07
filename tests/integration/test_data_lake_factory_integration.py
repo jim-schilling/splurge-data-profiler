@@ -19,8 +19,8 @@ def temp_files():
     """Set up test fixtures."""
     # Create a temporary CSV file for testing
     temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
-    with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
-        f.write('id,name,value\n1,Alice,10.5\n2,Bob,20.0\n')
+    with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
+        f.write("id,name,value\n1,Alice,10.5\n2,Bob,20.0\n")
     test_file_path = Path(temp_path)
 
     # Create a temporary directory for the data lake
@@ -36,6 +36,7 @@ def temp_files():
         pass
     try:
         import shutil
+
         shutil.rmtree(temp_dir)
     except Exception:
         pass
@@ -49,10 +50,7 @@ def test_from_dsv_source_creates_sqlite_table(temp_files) -> None:
     dsv_source = DsvSource(test_file_path)
 
     # Create data lake
-    data_lake = DataLakeFactory.from_dsv_source(
-        dsv_source=dsv_source,
-        data_lake_path=data_lake_path
-    )
+    data_lake = DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=data_lake_path)
 
     # Verify the data lake was created
     assert isinstance(data_lake, DataLake)
@@ -96,10 +94,7 @@ def test_from_dsv_source_creates_directory_if_not_exists(temp_files) -> None:
     dsv_source = DsvSource(test_file_path)
 
     # Create data lake
-    DataLakeFactory.from_dsv_source(
-        dsv_source=dsv_source,
-        data_lake_path=non_existent_path
-    )
+    DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=non_existent_path)
 
     # Verify the directory was created
     assert non_existent_path.exists()
@@ -117,8 +112,8 @@ def test_from_dsv_source_with_different_file_types(temp_files) -> None:
     # Create a TSV file
     tsv_fd, tsv_path = tempfile.mkstemp(suffix=".tsv")
     try:
-        with os.fdopen(tsv_fd, 'w', encoding='utf-8') as f:
-            f.write('id\tname\tvalue\n1\tAlice\t10.5\n2\tBob\t20.0\n')
+        with os.fdopen(tsv_fd, "w", encoding="utf-8") as f:
+            f.write("id\tname\tvalue\n1\tAlice\t10.5\n2\tBob\t20.0\n")
 
         tsv_file_path = Path(tsv_path)
 
@@ -126,10 +121,7 @@ def test_from_dsv_source_with_different_file_types(temp_files) -> None:
         dsv_source = DsvSource(tsv_file_path, delimiter="\t")
 
         # Create data lake
-        data_lake = DataLakeFactory.from_dsv_source(
-            dsv_source=dsv_source,
-            data_lake_path=data_lake_path
-        )
+        data_lake = DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=data_lake_path)
 
         # Verify the SQLite file was created with the correct name
         expected_db_path = data_lake_path / f"{tsv_file_path.stem}.sqlite"
@@ -144,4 +136,3 @@ def test_from_dsv_source_with_different_file_types(temp_files) -> None:
             os.remove(tsv_path)
         except Exception:
             pass
-

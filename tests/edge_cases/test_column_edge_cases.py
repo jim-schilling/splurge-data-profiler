@@ -13,8 +13,15 @@ def test_column_inferred_type_setter_edge_cases():
     column = Column("test_column")
 
     # Test setting various data types
-    for data_type in [DataType.INTEGER, DataType.FLOAT, DataType.BOOLEAN,
-                     DataType.DATE, DataType.TIME, DataType.DATETIME, DataType.TEXT]:
+    for data_type in [
+        DataType.INTEGER,
+        DataType.FLOAT,
+        DataType.BOOLEAN,
+        DataType.DATE,
+        DataType.TIME,
+        DataType.DATETIME,
+        DataType.TEXT,
+    ]:
         column.inferred_type = data_type
         assert column.inferred_type == data_type
 

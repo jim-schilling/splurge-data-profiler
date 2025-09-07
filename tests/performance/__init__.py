@@ -1,1 +1,1 @@
-"""Performance tests for splurge-data-profiler.""" 
+"""Performance tests for splurge-data-profiler."""

@@ -18,12 +18,7 @@ from pathlib import Path
 def run_cli_command(args, cwd=None):
     """Run a CLI command and return the result."""
     cmd = [sys.executable, "-m", "splurge_data_profiler"] + args
-    result = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        cwd=cwd
-    )
+    result = subprocess.run(cmd, capture_output=True, text=True, cwd=cwd)
     return result
 
 
@@ -88,12 +83,7 @@ class TestCliIntegrationWorkflows:
         # Create custom configuration
         custom_config = {
             "data_lake_path": "./custom_lake",
-            "dsv": {
-                "delimiter": "\t",
-                "strip": True,
-                "encoding": "utf-8",
-                "header_rows": 1
-            }
+            "dsv": {"delimiter": "\t", "strip": True, "encoding": "utf-8", "header_rows": 1},
         }
 
         with open("custom_config.json", "w") as f:
@@ -143,13 +133,7 @@ class TestCliIntegrationWorkflows:
             f.write(unicode_content)
 
         # Create config with UTF-8 encoding
-        config = {
-            "data_lake_path": "./unicode_lake",
-            "dsv": {
-                "delimiter": ",",
-                "encoding": "utf-8"
-            }
-        }
+        config = {"data_lake_path": "./unicode_lake", "dsv": {"delimiter": ",", "encoding": "utf-8"}}
 
         with open("unicode_config.json", "w") as f:
             json.dump(config, f)
@@ -170,10 +154,7 @@ class TestCliIntegrationWorkflows:
                 f.write(f"{i},Item_{i},{i * 1.5},Category_{i % 10}\n")
 
         # Create config
-        config = {
-            "data_lake_path": "./large_lake",
-            "dsv": {"delimiter": ","}
-        }
+        config = {"data_lake_path": "./large_lake", "dsv": {"delimiter": ","}}
 
         with open("large_config.json", "w") as f:
             json.dump(config, f)
@@ -192,10 +173,7 @@ class TestCliIntegrationWorkflows:
             f.write("id,name\n1,test\n")
 
         # Create config with relative path
-        config = {
-            "data_lake_path": "relative/path/lake",
-            "dsv": {"delimiter": ","}
-        }
+        config = {"data_lake_path": "relative/path/lake", "dsv": {"delimiter": ","}}
 
         with open("path_config.json", "w") as f:
             json.dump(config, f)

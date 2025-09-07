@@ -26,9 +26,9 @@ def generate_large_csv_file(temp_fd, temp_path):
     cities = ["New York", "Los Angeles", "Chicago", "Houston", "Phoenix", "Philadelphia", "San Antonio", "San Diego"]
     departments = ["Engineering", "Sales", "Marketing", "HR", "Finance", "Operations", "Legal", "IT"]
 
-    with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
+    with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
         # Write header
-        f.write(','.join(headers) + '\n')
+        f.write(",".join(headers) + "\n")
 
         # Generate 5500 data rows (more than 5000 as requested)
         for i in range(1, 5501):
@@ -43,7 +43,7 @@ def generate_large_csv_file(temp_fd, temp_path):
 
             # Create row data
             row_data = [str(i), name, email, str(age), city, str(salary), department, hire_date]
-            f.write(','.join(row_data) + '\n')
+            f.write(",".join(row_data) + "\n")
 
 
 @pytest.fixture
@@ -69,6 +69,7 @@ def large_csv_and_data_lake():
         pass
     try:
         import shutil
+
         shutil.rmtree(temp_dir)
     except Exception:
         pass
@@ -77,7 +78,7 @@ def large_csv_and_data_lake():
 def test_streaming_large_dsv_file_creation(large_csv_and_data_lake):
     """Test that streaming can handle large DSV files (>5000 lines)."""
     test_file_path, data_lake_path = large_csv_and_data_lake
-    
+
     # Create DSV source
     dsv_source = DsvSource(test_file_path)
 
@@ -88,10 +89,7 @@ def test_streaming_large_dsv_file_creation(large_csv_and_data_lake):
     assert actual_columns == expected_columns
 
     # Create data lake using streaming
-    data_lake = DataLakeFactory.from_dsv_source(
-        dsv_source=dsv_source,
-        data_lake_path=data_lake_path
-    )
+    data_lake = DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=data_lake_path)
 
     # Verify the data lake was created
     assert isinstance(data_lake, DataLake)
@@ -119,15 +117,12 @@ def test_streaming_large_dsv_file_creation(large_csv_and_data_lake):
 def test_streaming_large_dsv_file_data_integrity(large_csv_and_data_lake):
     """Test that all data from the large DSV file is correctly inserted into SQLite."""
     test_file_path, data_lake_path = large_csv_and_data_lake
-    
+
     # Create DSV source
     dsv_source = DsvSource(test_file_path)
 
     # Create data lake using streaming
-    data_lake = DataLakeFactory.from_dsv_source(
-        dsv_source=dsv_source,
-        data_lake_path=data_lake_path
-    )
+    data_lake = DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=data_lake_path)
 
     # Connect to the created database and verify data integrity
     engine = create_engine(data_lake.db_url)
@@ -188,7 +183,7 @@ def test_streaming_large_dsv_file_performance(large_csv_and_data_lake):
     import time
 
     test_file_path, data_lake_path = large_csv_and_data_lake
-    
+
     # Create DSV source
     dsv_source = DsvSource(test_file_path)
 
@@ -196,10 +191,7 @@ def test_streaming_large_dsv_file_performance(large_csv_and_data_lake):
     start_time = time.time()
 
     # Create data lake using streaming
-    data_lake = DataLakeFactory.from_dsv_source(
-        dsv_source=dsv_source,
-        data_lake_path=data_lake_path
-    )
+    data_lake = DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=data_lake_path)
 
     end_time = time.time()
     processing_time = end_time - start_time
@@ -225,15 +217,12 @@ def test_streaming_large_dsv_file_performance(large_csv_and_data_lake):
 def test_streaming_large_dsv_file_memory_usage(large_csv_and_data_lake):
     """Test that streaming can handle large files without memory issues."""
     test_file_path, data_lake_path = large_csv_and_data_lake
-    
+
     # Create DSV source
     dsv_source = DsvSource(test_file_path)
 
     # Create data lake using streaming
-    data_lake = DataLakeFactory.from_dsv_source(
-        dsv_source=dsv_source,
-        data_lake_path=data_lake_path
-    )
+    data_lake = DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=data_lake_path)
 
     # Verify the operation completed successfully
     assert isinstance(data_lake, DataLake)
@@ -262,17 +251,14 @@ def test_streaming_large_dsv_file_memory_usage(large_csv_and_data_lake):
 
         try:
             # Generate a smaller but still substantial dataset
-            with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
+            with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
                 f.write("id,name,value\n")
                 for j in range(1, 1001):  # 1000 rows
                     f.write(f"{j},Test_{j},{j * 10.5}\n")
 
             # Process the file
             dsv_source_2 = DsvSource(temp_file_path)
-            data_lake_2 = DataLakeFactory.from_dsv_source(
-                dsv_source=dsv_source_2,
-                data_lake_path=data_lake_path
-            )
+            data_lake_2 = DataLakeFactory.from_dsv_source(dsv_source=dsv_source_2, data_lake_path=data_lake_path)
 
             # Verify it was processed correctly
             assert isinstance(data_lake_2, DataLake)
@@ -298,28 +284,25 @@ def test_streaming_large_dsv_file_memory_usage(large_csv_and_data_lake):
 def test_streaming_large_dsv_file_with_different_delimiters(large_csv_and_data_lake):
     """Test streaming with different delimiters (TSV format)."""
     test_file_path, data_lake_path = large_csv_and_data_lake
-    
+
     # Create a TSV file with the same data
     tsv_fd, tsv_path = tempfile.mkstemp(suffix=".tsv")
     tsv_file_path = Path(tsv_path)
 
     try:
         # Copy the CSV content but replace commas with tabs
-        with open(test_file_path, 'r', encoding='utf-8') as csv_file:
+        with open(test_file_path, "r", encoding="utf-8") as csv_file:
             csv_content = csv_file.read()
-            tsv_content = csv_content.replace(',', '\t')
+            tsv_content = csv_content.replace(",", "\t")
 
-        with os.fdopen(tsv_fd, 'w', encoding='utf-8') as tsv_file:
+        with os.fdopen(tsv_fd, "w", encoding="utf-8") as tsv_file:
             tsv_file.write(tsv_content)
 
         # Create DSV source with tab delimiter
         dsv_source = DsvSource(tsv_file_path, delimiter="\t")
 
         # Create data lake using streaming
-        data_lake = DataLakeFactory.from_dsv_source(
-            dsv_source=dsv_source,
-            data_lake_path=data_lake_path
-        )
+        data_lake = DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=data_lake_path)
 
         # Verify the data lake was created
         assert isinstance(data_lake, DataLake)
@@ -349,29 +332,28 @@ def test_streaming_large_dsv_file_with_different_delimiters(large_csv_and_data_l
 def test_streaming_large_dsv_file_error_handling(large_csv_and_data_lake):
     """Test error handling with malformed large files."""
     test_file_path, data_lake_path = large_csv_and_data_lake
-    
+
     # Create a malformed CSV file (missing some values)
     malformed_fd, malformed_path = tempfile.mkstemp(suffix=".csv")
     malformed_file_path = Path(malformed_path)
 
     try:
-        with os.fdopen(malformed_fd, 'w', encoding='utf-8') as f:
+        with os.fdopen(malformed_fd, "w", encoding="utf-8") as f:
             f.write("id,name,email,age,city,salary,department,hire_date\n")
             # Add some malformed rows
             for i in range(1, 1001):
                 if i % 100 == 0:  # Every 100th row is malformed
                     f.write(f"{i},Employee_{i:04d},employee_{i:04d}@company.com,25,New York,50000\n")  # Missing values
                 else:
-                    f.write(f"{i},Employee_{i:04d},employee_{i:04d}@company.com,25,New York,50000,Engineering,2023-01-01\n")
+                    f.write(
+                        f"{i},Employee_{i:04d},employee_{i:04d}@company.com,25,New York,50000,Engineering,2023-01-01\n"
+                    )
 
         # Create DSV source
         dsv_source = DsvSource(malformed_file_path)
 
         # This should still work as our implementation handles missing values
-        data_lake = DataLakeFactory.from_dsv_source(
-            dsv_source=dsv_source,
-            data_lake_path=data_lake_path
-        )
+        data_lake = DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=data_lake_path)
 
         # Verify the data lake was created
         assert isinstance(data_lake, DataLake)

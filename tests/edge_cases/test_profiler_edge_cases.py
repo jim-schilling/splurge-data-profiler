@@ -29,14 +29,11 @@ def test_profiler_reprofile_same_data():
 
     try:
         # Create simple test data
-        with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
+        with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
             f.write("id,name,value\n1,Alice,10.5\n2,Bob,20.0\n")
 
         dsv_source = DsvSource(temp_path)
-        data_lake = DataLakeFactory.from_dsv_source(
-            dsv_source=dsv_source,
-            data_lake_path=Path(temp_dir)
-        )
+        data_lake = DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=Path(temp_dir))
 
         profiler = Profiler(data_lake=data_lake)
 
@@ -63,6 +60,7 @@ def test_profiler_reprofile_same_data():
             pass  # File may not exist or be locked
         try:
             import shutil
+
             shutil.rmtree(temp_dir)
         except OSError:
             pass  # Directory may not exist or be locked
@@ -75,14 +73,11 @@ def test_profiler_large_sample_size():
 
     try:
         # Create small test data (only 5 rows)
-        with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
+        with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
             f.write("id,name\n1,Alice\n2,Bob\n3,Charlie\n4,Diana\n5,Eve\n")
 
         dsv_source = DsvSource(temp_path)
-        data_lake = DataLakeFactory.from_dsv_source(
-            dsv_source=dsv_source,
-            data_lake_path=Path(temp_dir)
-        )
+        data_lake = DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=Path(temp_dir))
 
         profiler = Profiler(data_lake=data_lake)
 
@@ -104,6 +99,7 @@ def test_profiler_large_sample_size():
             pass  # File may not exist or be locked
         try:
             import shutil
+
             shutil.rmtree(temp_dir)
         except OSError:
             pass  # Directory may not exist or be locked
@@ -127,14 +123,11 @@ def test_calculate_adaptive_sample_size():
 
     try:
         # Create minimal test data
-        with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
+        with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
             f.write("id,name\n1,Alice\n2,Bob\n")
 
         dsv_source = DsvSource(temp_path)
-        DataLakeFactory.from_dsv_source(
-            dsv_source=dsv_source,
-            data_lake_path=Path(temp_dir)
-        )
+        DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=Path(temp_dir))
 
         # Test datasets < 10K rows (100% sample)
         test_cases_small = [
@@ -146,8 +139,9 @@ def test_calculate_adaptive_sample_size():
 
         for total_rows, expected_sample in test_cases_small:
             sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
-            assert sample_size == Profiler.calculate_adaptive_sample_size(total_rows=total_rows), \
+            assert sample_size == Profiler.calculate_adaptive_sample_size(total_rows=total_rows), (
                 f"Expected {Profiler.calculate_adaptive_sample_size(total_rows=total_rows)} for {total_rows} rows, got {sample_size}"
+            )
 
         # Test datasets 10K-25K rows (75% sample)
         test_cases_75 = [
@@ -158,8 +152,9 @@ def test_calculate_adaptive_sample_size():
         ]
         for total_rows, expected_sample in test_cases_75:
             sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
-            assert sample_size == Profiler.calculate_adaptive_sample_size(total_rows=total_rows), \
+            assert sample_size == Profiler.calculate_adaptive_sample_size(total_rows=total_rows), (
                 f"Expected {Profiler.calculate_adaptive_sample_size(total_rows=total_rows)} for {total_rows} rows, got {sample_size}"
+            )
 
         # Test datasets 25K-50K rows (50% sample)
         test_cases_50 = [
@@ -170,8 +165,9 @@ def test_calculate_adaptive_sample_size():
         ]
         for total_rows, expected_sample in test_cases_50:
             sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
-            assert sample_size == Profiler.calculate_adaptive_sample_size(total_rows=total_rows), \
+            assert sample_size == Profiler.calculate_adaptive_sample_size(total_rows=total_rows), (
                 f"Expected {Profiler.calculate_adaptive_sample_size(total_rows=total_rows)} for {total_rows} rows, got {sample_size}"
+            )
 
         # Test datasets 50K-100K rows (25% sample)
         test_cases_25 = [
@@ -182,8 +178,9 @@ def test_calculate_adaptive_sample_size():
         ]
         for total_rows, expected_sample in test_cases_25:
             sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
-            assert sample_size == Profiler.calculate_adaptive_sample_size(total_rows=total_rows), \
+            assert sample_size == Profiler.calculate_adaptive_sample_size(total_rows=total_rows), (
                 f"Expected {Profiler.calculate_adaptive_sample_size(total_rows=total_rows)} for {total_rows} rows, got {sample_size}"
+            )
 
         # Test datasets 100K-500K rows (15% sample)
         test_cases_15 = [
@@ -194,8 +191,9 @@ def test_calculate_adaptive_sample_size():
         ]
         for total_rows, expected_sample in test_cases_15:
             sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
-            assert sample_size == Profiler.calculate_adaptive_sample_size(total_rows=total_rows), \
+            assert sample_size == Profiler.calculate_adaptive_sample_size(total_rows=total_rows), (
                 f"Expected {Profiler.calculate_adaptive_sample_size(total_rows=total_rows)} for {total_rows} rows, got {sample_size}"
+            )
 
         # Test datasets > 500K rows (10% sample)
         test_cases_10 = [
@@ -206,8 +204,9 @@ def test_calculate_adaptive_sample_size():
         ]
         for total_rows, expected_sample in test_cases_10:
             sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
-            assert sample_size == Profiler.calculate_adaptive_sample_size(total_rows=total_rows), \
+            assert sample_size == Profiler.calculate_adaptive_sample_size(total_rows=total_rows), (
                 f"Expected {Profiler.calculate_adaptive_sample_size(total_rows=total_rows)} for {total_rows} rows, got {sample_size}"
+            )
 
         # Test boundary conditions and edge cases
         boundary_tests = [
@@ -215,45 +214,41 @@ def test_calculate_adaptive_sample_size():
             (10000, 7500),  # Exactly at 10K boundary
             (25000, 12500),  # Exactly at 25K boundary
             (50000, 12500),  # Exactly at 50K boundary
-            (100000, 15000), # Exactly at 100K boundary
-            (500000, 50000), # Exactly at 500K boundary
-
+            (100000, 15000),  # Exactly at 100K boundary
+            (500000, 50000),  # Exactly at 500K boundary
             # Test one row before boundaries
             (9999, 9999),  # One row before 10K boundary
             (24999, int(24999 * 0.75)),  # One row before 25K boundary
             (49999, int(49999 * 0.5)),  # One row before 50K boundary
             (99999, int(99999 * 0.25)),  # One row before 100K boundary
-            (499999, int(499999 * 0.15)), # One row before 500K boundary
-
+            (499999, int(499999 * 0.15)),  # One row before 500K boundary
             # Test one row after boundaries
             (10001, int(10001 * 0.75)),  # One row after 10K boundary
             (25001, int(25001 * 0.5)),  # One row after 25K boundary
             (50001, int(50001 * 0.25)),  # One row after 50K boundary
-            (100001, int(100001 * 0.15)), # One row after 100K boundary
-            (500001, int(500001 * 0.10)), # One row after 500K boundary
+            (100001, int(100001 * 0.15)),  # One row after 100K boundary
+            (500001, int(500001 * 0.10)),  # One row after 500K boundary
         ]
         for total_rows, expected_sample in boundary_tests:
             sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
-            assert sample_size == Profiler.calculate_adaptive_sample_size(total_rows=total_rows), \
+            assert sample_size == Profiler.calculate_adaptive_sample_size(total_rows=total_rows), (
                 f"Expected {Profiler.calculate_adaptive_sample_size(total_rows=total_rows)} for {total_rows} rows, got {sample_size}"
+            )
 
         # Test that sample size never exceeds total rows
         for total_rows in [1000, 25000, 50000, 100000, 500000, 1000000]:
             sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
-            assert sample_size <= total_rows, \
-                f"Sample size {sample_size} should not exceed total rows {total_rows}"
+            assert sample_size <= total_rows, f"Sample size {sample_size} should not exceed total rows {total_rows}"
 
         # Test that sample size is always non-negative
         for total_rows in [0, 1, 1000, 25000, 50000, 100000, 500000, 1000000]:
             sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
-            assert sample_size >= 0, \
-                f"Sample size {sample_size} should be non-negative for {total_rows} rows"
+            assert sample_size >= 0, f"Sample size {sample_size} should be non-negative for {total_rows} rows"
 
         # Test that sample size is always an integer
         for total_rows in [1000, 25000, 50000, 100000, 500000, 1000000]:
             sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
-            assert isinstance(sample_size, int), \
-                f"Sample size {sample_size} should be an integer for {total_rows} rows"
+            assert isinstance(sample_size, int), f"Sample size {sample_size} should be an integer for {total_rows} rows"
 
     finally:
         # Robust cleanup with exception handling
@@ -267,6 +262,7 @@ def test_calculate_adaptive_sample_size():
             pass  # File may not exist or be locked
         try:
             import shutil
+
             shutil.rmtree(temp_dir)
         except OSError:
             pass  # Directory may not exist or be locked
@@ -279,14 +275,11 @@ def test_profiler_properties():
 
     try:
         # Create test data
-        with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
+        with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
             f.write("id,name\n1,Alice\n2,Bob\n")
 
         dsv_source = DsvSource(temp_path)
-        data_lake = DataLakeFactory.from_dsv_source(
-            dsv_source=dsv_source,
-            data_lake_path=Path(temp_dir)
-        )
+        data_lake = DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=Path(temp_dir))
 
         profiler = Profiler(data_lake=data_lake)
 
@@ -313,6 +306,7 @@ def test_profiler_properties():
             pass  # File may not exist or be locked
         try:
             import shutil
+
             shutil.rmtree(temp_dir)
         except OSError:
             pass  # Directory may not exist or be locked

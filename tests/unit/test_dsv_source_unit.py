@@ -19,8 +19,8 @@ class TestDsvSource:
         """Set up test fixtures."""
         # Create a temporary CSV file for testing
         self.temp_fd, self.temp_path = tempfile.mkstemp(suffix=".csv")
-        with os.fdopen(self.temp_fd, 'w', encoding='utf-8') as f:
-            f.write('id,name\n1,Alice\n2,Bob\n')
+        with os.fdopen(self.temp_fd, "w", encoding="utf-8") as f:
+            f.write("id,name\n1,Alice\n2,Bob\n")
         self.test_file_path = Path(self.temp_path)
 
     def teardown_method(self) -> None:
@@ -50,8 +50,8 @@ class TestDsvSource:
         # Create a file with more data for this test
         temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
         try:
-            with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
-                f.write('header1\nheader2\nid\tname\n1\tAlice\n2\tBob\nfooter\n')
+            with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
+                f.write("header1\nheader2\nid\tname\n1\tAlice\n2\tBob\nfooter\n")
 
             source = DsvSource(
                 file_path=Path(temp_path),
@@ -63,7 +63,7 @@ class TestDsvSource:
                 skip_header_rows=2,
                 skip_footer_rows=1,
                 header_rows=1,
-                skip_empty_rows=False
+                skip_empty_rows=False,
             )
 
             assert source.delimiter == "\t"
@@ -105,7 +105,7 @@ class TestDsvSource:
         actual = str(source)
         assert f"file_path={self.test_file_path}" in actual
         assert "delimiter=," in actual
-        assert "bookend=\"" in actual
+        assert 'bookend="' in actual
         assert "bookend_strip=True" in actual
         assert "encoding=utf-8" in actual
         assert "skip_header_rows=0" in actual
@@ -114,5 +114,3 @@ class TestDsvSource:
         assert "skip_empty_rows=True" in actual
         assert "Column(name=id, inferred_type=DataType.TEXT, raw_type=DataType.TEXT, is_nullable=True)" in actual
         assert "Column(name=name, inferred_type=DataType.TEXT, raw_type=DataType.TEXT, is_nullable=True)" in actual
-
-
