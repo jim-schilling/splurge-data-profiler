@@ -8,12 +8,26 @@ to ensure everything is properly organized and functional.
 from pathlib import Path
 
 
+def _find_project_root() -> Path:
+    """Find the project root directory by looking for pyproject.toml."""
+    current_path = Path(__file__).parent
+    
+    # Walk up the directory tree looking for pyproject.toml
+    for parent in current_path.parents:
+        if (parent / "pyproject.toml").exists():
+            return parent
+    
+    # Fallback to assuming we're in tests/unit/ and project root is two levels up
+    return Path(__file__).parent.parent.parent
+
+
 class TestDocumentationStructure:
     """Test documentation file structure and organization."""
 
     def test_readme_exists_and_basic_structure(self):
         """Test that README.md exists and has basic structure."""
-        readme_path = Path(__file__).parent.parent.parent / "README.md"
+        project_root = _find_project_root()
+        readme_path = project_root / "README.md"
         assert readme_path.exists(), "README.md should exist"
 
         with open(readme_path, "r", encoding="utf-8") as f:
@@ -28,7 +42,8 @@ class TestDocumentationStructure:
 
     def test_changelog_exists_and_format(self):
         """Test that CHANGELOG.md exists and follows proper format."""
-        changelog_path = Path(__file__).parent.parent.parent / "CHANGELOG.md"
+        project_root = _find_project_root()
+        changelog_path = project_root / "CHANGELOG.md"
         assert changelog_path.exists(), "CHANGELOG.md should exist"
 
         with open(changelog_path, "r", encoding="utf-8") as f:
@@ -41,7 +56,8 @@ class TestDocumentationStructure:
 
     def test_detailed_docs_exists_and_structure(self):
         """Test that detailed documentation exists and has proper structure."""
-        docs_path = Path(__file__).parent.parent.parent / "docs" / "README-details.md"
+        project_root = _find_project_root()
+        docs_path = project_root / "docs" / "README-details.md"
         assert docs_path.exists(), "docs/README-details.md should exist"
 
         with open(docs_path, "r", encoding="utf-8") as f:
@@ -56,7 +72,8 @@ class TestDocumentationStructure:
 
     def test_docs_directory_structure(self):
         """Test that docs directory has proper structure."""
-        docs_dir = Path(__file__).parent.parent.parent / "docs"
+        project_root = _find_project_root()
+        docs_dir = project_root / "docs"
         assert docs_dir.exists(), "docs directory should exist"
         assert docs_dir.is_dir(), "docs should be a directory"
 
@@ -72,7 +89,8 @@ class TestDocumentationLinks:
 
     def test_readme_links_to_detailed_docs(self):
         """Test that README.md properly links to detailed documentation."""
-        readme_path = Path(__file__).parent.parent.parent / "README.md"
+        project_root = _find_project_root()
+        readme_path = project_root / "README.md"
 
         with open(readme_path, "r", encoding="utf-8") as f:
             content = f.read()
@@ -83,7 +101,8 @@ class TestDocumentationLinks:
 
     def test_detailed_docs_internal_links(self):
         """Test that detailed documentation has proper internal links."""
-        docs_path = Path(__file__).parent.parent.parent / "docs" / "README-details.md"
+        project_root = _find_project_root()
+        docs_path = project_root / "docs" / "README-details.md"
 
         with open(docs_path, "r", encoding="utf-8") as f:
             content = f.read()
@@ -95,7 +114,8 @@ class TestDocumentationLinks:
 
     def test_pyproject_urls_point_to_correct_locations(self):
         """Test that pyproject.toml URLs point to correct documentation locations."""
-        pyproject_path = Path(__file__).parent.parent.parent / "pyproject.toml"
+        project_root = _find_project_root()
+        pyproject_path = project_root / "pyproject.toml"
 
         with open(pyproject_path, "r", encoding="utf-8") as f:
             content = f.read()
@@ -111,7 +131,8 @@ class TestDocumentationContent:
 
     def test_readme_has_badges(self):
         """Test that README.md has proper badges."""
-        readme_path = Path(__file__).parent.parent.parent / "README.md"
+        project_root = _find_project_root()
+        readme_path = project_root / "README.md"
 
         with open(readme_path, "r", encoding="utf-8") as f:
             content = f.read()
@@ -122,7 +143,8 @@ class TestDocumentationContent:
 
     def test_detailed_docs_comprehensive(self):
         """Test that detailed documentation is comprehensive."""
-        docs_path = Path(__file__).parent.parent.parent / "docs" / "README-details.md"
+        project_root = _find_project_root()
+        docs_path = project_root / "docs" / "README-details.md"
 
         with open(docs_path, "r", encoding="utf-8") as f:
             content = f.read()
@@ -144,7 +166,8 @@ class TestDocumentationContent:
 
     def test_changelog_has_versions(self):
         """Test that changelog contains version information."""
-        changelog_path = Path(__file__).parent.parent.parent / "CHANGELOG.md"
+        project_root = _find_project_root()
+        changelog_path = project_root / "CHANGELOG.md"
 
         with open(changelog_path, "r", encoding="utf-8") as f:
             content = f.read()
@@ -155,7 +178,8 @@ class TestDocumentationContent:
 
     def test_documentation_formatting(self):
         """Test that documentation follows proper formatting."""
-        docs_path = Path(__file__).parent.parent.parent / "docs" / "README-details.md"
+        project_root = _find_project_root()
+        docs_path = project_root / "docs" / "README-details.md"
 
         with open(docs_path, "r", encoding="utf-8") as f:
             content = f.read()
@@ -167,7 +191,8 @@ class TestDocumentationContent:
 
     def test_examples_are_executable(self):
         """Test that examples in documentation are properly formatted."""
-        docs_path = Path(__file__).parent.parent.parent / "docs" / "README-details.md"
+        project_root = _find_project_root()
+        docs_path = project_root / "docs" / "README-details.md"
 
         with open(docs_path, "r", encoding="utf-8") as f:
             content = f.read()
@@ -183,8 +208,9 @@ class TestDocumentationConsistency:
 
     def test_feature_descriptions_consistent(self):
         """Test that feature descriptions are consistent across docs."""
-        readme_path = Path(__file__).parent.parent.parent / "README.md"
-        docs_path = Path(__file__).parent.parent.parent / "docs" / "README-details.md"
+        project_root = _find_project_root()
+        readme_path = project_root / "README.md"
+        docs_path = project_root / "docs" / "README-details.md"
 
         with open(readme_path, "r", encoding="utf-8") as f:
             readme_content = f.read()
@@ -200,8 +226,9 @@ class TestDocumentationConsistency:
 
     def test_no_duplicate_content(self):
         """Test that there's no significant duplicate content between docs."""
-        readme_path = Path(__file__).parent.parent.parent / "README.md"
-        docs_path = Path(__file__).parent.parent.parent / "docs" / "README-details.md"
+        project_root = _find_project_root()
+        readme_path = project_root / "README.md"
+        docs_path = project_root / "docs" / "README-details.md"
 
         with open(readme_path, "r", encoding="utf-8") as f:
             readme_content = f.read()
@@ -219,22 +246,22 @@ class TestDocumentationConsistency:
 
 def test_documentation_file_sizes():
     """Test that documentation files have reasonable sizes."""
-    base_path = Path(__file__).parent.parent.parent
+    project_root = _find_project_root()
 
     # README should be concise
-    readme_path = base_path / "README.md"
+    readme_path = project_root / "README.md"
     with open(readme_path, "r", encoding="utf-8") as f:
         readme_size = len(f.read())
     assert readme_size < 5000, "README should be concise (< 5000 chars)"
 
     # Detailed docs should be comprehensive
-    docs_path = base_path / "docs" / "README-details.md"
+    docs_path = project_root / "docs" / "README-details.md"
     with open(docs_path, "r", encoding="utf-8") as f:
         docs_size = len(f.read())
     assert docs_size > 10000, "Detailed docs should be comprehensive (> 10000 chars)"
 
     # Changelog should have reasonable size
-    changelog_path = base_path / "CHANGELOG.md"
+    changelog_path = project_root / "CHANGELOG.md"
     with open(changelog_path, "r", encoding="utf-8") as f:
         changelog_size = len(f.read())
     assert changelog_size > 1000, "Changelog should have content (> 1000 chars)"

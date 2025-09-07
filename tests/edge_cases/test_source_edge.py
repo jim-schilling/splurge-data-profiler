@@ -244,7 +244,6 @@ def test_dsv_source_with_large_skip_values():
             os.remove(temp_path)
         except Exception:
             pass
-            pass
 
 
 def test_db_source_invalid_url():
