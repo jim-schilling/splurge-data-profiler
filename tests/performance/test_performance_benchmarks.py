@@ -436,14 +436,6 @@ def _run_performance_test(test_dir: Path, dsv_path: Path, num_rows: int) -> Tupl
     return results, actual_db_path
 
 
-def test_performance_100k_rows(performance_benchmark_setup) -> None:
-    """Test performance with 100,000 rows."""
-    test_dir, dsv_path = performance_benchmark_setup
-    num_rows = 100000
-    results, actual_db_path = _run_performance_test(test_dir, dsv_path, num_rows=num_rows)
-    _print_performance_summary("test_performance_100k_rows", results, num_rows=num_rows, db_path=actual_db_path)
-
-
 def test_performance_001k_rows(performance_benchmark_setup) -> None:
     """Test performance with 1,000 rows."""
     test_dir, dsv_path = performance_benchmark_setup
@@ -452,34 +444,27 @@ def test_performance_001k_rows(performance_benchmark_setup) -> None:
     _print_performance_summary("test_performance_001k_rows", results, num_rows=num_rows, db_path=actual_db_path)
 
 
-def test_performance_010k_rows(performance_benchmark_setup) -> None:
-    """Test performance with 10,000 rows."""
+def test_performance_015k_rows(performance_benchmark_setup) -> None:
+    """Test performance with 15,000 rows."""
     test_dir, dsv_path = performance_benchmark_setup
-    num_rows = 10000
+    num_rows = 15000
     results, actual_db_path = _run_performance_test(test_dir, dsv_path, num_rows=num_rows)
-    _print_performance_summary("test_performance_010k_rows", results, num_rows=num_rows, db_path=actual_db_path)
+    _print_performance_summary("test_performance_015k_rows", results, num_rows=num_rows, db_path=actual_db_path)
 
 
-def test_performance_020k_rows(performance_benchmark_setup) -> None:
-    """Test performance with 20,000 rows."""
+def test_performance_030k_rows(performance_benchmark_setup) -> None:
+    """Test performance with 30,000 rows."""
     test_dir, dsv_path = performance_benchmark_setup
-    num_rows = 20000
+    num_rows = 30000
     results, actual_db_path = _run_performance_test(test_dir, dsv_path, num_rows=num_rows)
-    _print_performance_summary("test_performance_020k_rows", results, num_rows=num_rows, db_path=actual_db_path)
-
-
-def test_performance_050k_rows(performance_benchmark_setup) -> None:
-    """Test performance with 50,000 rows."""
-    test_dir, dsv_path = performance_benchmark_setup
-    num_rows = 50000
-    results, actual_db_path = _run_performance_test(test_dir, dsv_path, num_rows=num_rows)
-    _print_performance_summary("test_performance_050k_rows", results, num_rows=num_rows, db_path=actual_db_path)
+    _print_performance_summary("test_performance_030k_rows", results, num_rows=num_rows, db_path=actual_db_path)
 
 
 def test_adaptive_sampling_scaling(performance_benchmark_setup) -> None:
     """Test adaptive sampling performance across different dataset sizes."""
     test_dir, dsv_path = performance_benchmark_setup
-    dataset_sizes = [1000, 5000, 10000, 20000, 50000, 100000]
+    # Use targeted sizes for quicker performance benchmarks: 1k, 15k, 30k
+    dataset_sizes = [1000, 15000, 30000]
     for num_rows in dataset_sizes:
         results, actual_db_path = _run_performance_test(test_dir, dsv_path, num_rows=num_rows)
         profiling_efficiency = num_rows / results["profiling_time"]

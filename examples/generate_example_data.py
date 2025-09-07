@@ -80,8 +80,8 @@ def generate_dsv(file_path: Path, *, num_rows: int = 7500, delimiter: str = "|",
             score = round(random.uniform(0, 100), 2)
             last_login = (
                 start_date + timedelta(
-                    days=random.randint(0, 365 * 8), 
-                    hours=random.randint(0, 23), 
+                    days=random.randint(0, 365 * 8),
+                    hours=random.randint(0, 23),
                     minutes=random.randint(0, 59)
                 )
             ).isoformat(sep="T", timespec="seconds")
@@ -141,15 +141,15 @@ def main() -> None:
     # Create profiler and profile the data
     profiler = Profiler(data_lake=datalake)
     profiler.profile()  # Uses adaptive sampling by default
-    
+
     # Create inferred table
     inferred_table_name = profiler.create_inferred_table()
     print(f"Inferred table created: {inferred_table_name}")
-    
+
     # Show profiling results
     print("\nProfiling Results:")
     for column in profiler.profiled_columns:
         print(f"  {column.name}: {column.inferred_type.value}")
 
 if __name__ == "__main__":
-    main() 
+    main()

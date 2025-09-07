@@ -815,11 +815,17 @@ class TestDataLakeFactoryStreaming:
                 for i in range(1, 1001):
                     if i % 100 == 0:  # Every 100th row is malformed
                         f.write(
-                            f"{i},Employee_{i:04d},employee_{i:04d}@company.com,25,New York,50000\n"
+                            (
+                                f"{i},Employee_{i:04d},employee_{i:04d}@company.com,25,"
+                                f"New York,50000\n"
+                            )
                         )  # Missing values
                     else:
                         f.write(
-                            f"{i},Employee_{i:04d},employee_{i:04d}@company.com,25,New York,50000,Engineering,2023-01-01\n"
+                            (
+                                f"{i},Employee_{i:04d},employee_{i:04d}@company.com,25,New York,"
+                                f"50000,Engineering,2023-01-01\n"
+                            )
                         )
 
             # Create DSV source

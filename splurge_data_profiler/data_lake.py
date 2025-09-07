@@ -58,13 +58,19 @@ class DataLake:
     def db_table(self) -> str:
         """Get the database table name."""
         return self._db_table
-    
+
     def __str__(self) -> str:
-        return f"DataLake(db_url={self._db_url}, schema={self.db_schema}, table={self._db_table}, columns={len(self._column_names)})"
+        return (
+            f"DataLake(db_url={self._db_url}, schema={self.db_schema}, "
+            f"table={self._db_table}, columns={len(self._column_names)})"
+        )
 
     def __repr__(self) -> str:
-        return f"DataLake(db_url={self._db_url}, schema={self.db_schema}, table={self._db_table}, columns={self._column_names})"
-    
+        return (
+            f"DataLake(db_url={self._db_url}, schema={self.db_schema}, "
+            f"table={self._db_table}, columns={self._column_names})"
+        )
+
     def __eq__(self, other: Any) -> bool:
         if not isinstance(other, DataLake):
             return False
@@ -87,25 +93,24 @@ class DataLakeFactory:
             db_source: DbSource,
             batch_size: int = 1000
     ) -> None:
-        """
-        Stream DSV data into a SQLite table using StreamingTabularDataModel.
-        
+        """Stream DSV data into a SQLite table using StreamingTabularDataModel.
+
         This private static method reads data from a DSV file using streaming
-        to minimize memory usage and inserts the data into a SQLite table
-        as defined in the DbSource object.
-        
+        to minimize memory usage and inserts the data into a SQLite table as
+        defined in the DbSource object.
+
         Args:
             dsv_source: The DSV source containing file and parsing configuration
             db_source: The database source defining the target SQLite table
             batch_size: Number of rows to insert in each batch
-            
+
         Raises:
             RuntimeError: If streaming or database insertion fails
         """
         try:
             # Create database engine
             engine = create_engine(db_source.db_url)
-            
+
             # Create streaming parser using DsvHelper.parse_stream()
             raw_stream = DsvHelper.parse_stream(
                 dsv_source.file_path,
@@ -116,7 +121,7 @@ class DataLakeFactory:
                 skip_header_rows=dsv_source.skip_header_rows,
                 skip_footer_rows=dsv_source.skip_footer_rows
             )
-            
+
             # Create streaming tabular data model
             streaming_model = StreamingTabularDataModel(
                 raw_stream,
@@ -124,22 +129,22 @@ class DataLakeFactory:
                 skip_empty_rows=dsv_source.skip_empty_rows,
                 chunk_size=batch_size
             )
-            
+
             # Get column names from the streaming model
             column_names = streaming_model.column_names
-            
+
             # Validate that column names match the database schema
             db_column_names = [col.name for col in db_source.columns]
-            
+
             if column_names != db_column_names:
                 raise ValueError(
                     f"Column mismatch: DSV columns {column_names} "
                     f"do not match database columns {db_column_names}"
                 )
-            
+
             # Prepare batch insertion
             batch_data = []
-            
+
             # Stream through the data rows
             for row_data in streaming_model.iter_rows():
                 # Skip the header row (first row) since it contains column names
@@ -151,7 +156,7 @@ class DataLakeFactory:
                     val = row_data.get(col, None)
                     row_dict[col] = val if val not in (None, "") else None
                 batch_data.append(row_dict)
-                
+
                 # Insert batch when it reaches the batch size
                 if len(batch_data) >= batch_size:
                     cls._insert_batch(
@@ -160,7 +165,7 @@ class DataLakeFactory:
                         batch_data=batch_data
                     )
                     batch_data = []
-            
+
             # Insert any remaining data in the final batch
             if batch_data:
                 cls._insert_batch(
@@ -170,7 +175,7 @@ class DataLakeFactory:
                 )
 
             engine.dispose()
-            
+
         except SQLAlchemyError as exc:
             raise DatabaseError(f"Database insertion failed: {exc}")
         except (ValueError, TypeError, AttributeError, OSError) as exc:
@@ -186,15 +191,14 @@ class DataLakeFactory:
             batch_data: List[dict],
             chunk_size: int = 25
     ) -> None:
-        """
-        Insert a batch of data into the specified table in smaller chunks.
-        
+        """Insert a batch of data into the specified table in smaller chunks.
+
         Args:
             engine: SQLAlchemy engine instance
             table_name: Name of the table to insert into
             batch_data: List of dictionaries representing rows to insert
             chunk_size: Number of rows per insert statement (default: 25)
-        
+
         Raises:
             SQLAlchemyError: If insertion fails
         """
@@ -215,56 +219,55 @@ class DataLakeFactory:
             *,
             data_lake_path: str | PathLike
     ) -> DataLake:
-        """
-        Create a DataLake from a DSV source by generating a SQLite table.
-        
+        """Create a DataLake from a DSV source by generating a SQLite table.
+
         Args:
             dsv_source: The DSV source containing file and column information
             data_lake_path: Directory path where the SQLite database will be created
-            
+
         Returns:
             DataLake instance with the created database source
-            
+
         Raises:
             RuntimeError: If database creation fails
         """
         # Convert paths to Path objects
         data_lake_path = Path(data_lake_path)
         dsv_file_path = Path(dsv_source.file_path)
-        
+
         # Create the database filename using the DSV filename without extension
         db_filename = f"{dsv_file_path.stem}.sqlite"
         db_path = data_lake_path / db_filename
 
         # Ensure the data lake directory exists
         data_lake_path.mkdir(parents=True, exist_ok=True)
-        
+
         # Create SQLite database URL
         db_url = f"sqlite:///{db_path}"
-        
+
         try:
             # Create engine and metadata
             engine = create_engine(db_url)
             metadata = MetaData()
-            
+
             # Create table columns from DSV source columns
             table_columns = []
-            for column in dsv_source.columns:               
+            for column in dsv_source.columns:
                 sa_column = SAColumn(
                     column.name,
                     String,
                     nullable=True
                 )
                 table_columns.append(sa_column)
-            
+
             # Create the table
             table_name = dsv_file_path.stem
             Table(table_name, metadata, *table_columns)
-            
+
             # Create the table in the database
             metadata.create_all(engine)
             engine.dispose()
-            
+
             # Create DbSource for the new table
             # For SQLite, use the string "None" for db_schema so that
             # higher-level tests that expect a truthy schema value while
@@ -274,23 +277,22 @@ class DataLakeFactory:
                 db_schema=None,  # SQLite doesn't use schemas
                 db_table=table_name
             )
-            
+
             # Stream the DSV data into the SQLite table
             cls._stream_dsv_to_sqlite(
                 dsv_source=dsv_source,
                 db_source=db_source
             )
-            
+
             # Create and return DataLake. Do not provide a display_schema so the
             # DataLake.db_schema property reflects the underlying DbSource.db_schema
             # (None for SQLite). This prevents confusion between display-only
             # values and the schema used for SQL operations.
             return DataLake(db_source=db_source)
-            
+
         except SQLAlchemyError as exc:
             raise DatabaseError(f"Failed to create SQLite table from DSV source: {exc}")
         except (ValueError, TypeError, AttributeError, OSError) as exc:
             raise FileProcessingError(f"Error creating SQLite table: {exc}")
         except Exception as exc:
-            raise FileProcessingError(f"Unexpected error creating SQLite table: {exc}")    
-    
+            raise FileProcessingError(f"Unexpected error creating SQLite table: {exc}")

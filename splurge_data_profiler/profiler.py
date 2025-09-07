@@ -3,7 +3,7 @@ from typing import Any
 from dataclasses import dataclass
 
 from sqlalchemy import (
-    create_engine, text, MetaData, Table, Column as SAColumn, 
+    create_engine, text, MetaData, Table, Column as SAColumn,
     String as SAString, Integer, Float, Boolean, Date, DateTime, Time
 )
 from sqlalchemy.engine import Engine
@@ -39,13 +39,13 @@ class Profiler:
         *,
         total_rows: int
     ) -> int:
-        """
-        Calculate adaptive sample size based on total dataset size using class-level rules.
-        The rules are defined in the _SAMPLE_RULES class variable.
-        
+        """Calculate adaptive sample size based on total dataset size using
+        class-level rules. The rules are defined in the _SAMPLE_RULES class
+        variable.
+
         Args:
             total_rows: Total number of rows in the dataset
-            
+
         Returns:
             Calculated sample size
         """
@@ -70,24 +70,24 @@ class Profiler:
             *,
             sample_size: int | None = None
     ) -> None:
-        """
-        Profile the data lake by analyzing each column's data types.
-        
-        Uses SQLAlchemy to connect to the database and samples data from each column
-        to determine the inferred data types using the profile_values function.
-        Updates a private copy of the columns with profiling results.
-        
+        """Profile the data lake by analyzing each column's data types.
+
+        Uses SQLAlchemy to connect to the database and samples data from each
+        column to determine the inferred data types using the
+        profile_values function. Updates a private copy of the columns with
+        profiling results.
+
         Args:
-            sample_size: Number of rows to sample for profiling. If None, uses adaptive sampling
-                        based on dataset size (default: None for adaptive sampling)
-            
+            sample_size: Number of rows to sample for profiling. If None, uses
+                adaptive sampling based on dataset size (default: None)
+
         Raises:
             RuntimeError: If database connection or profiling fails
         """
         try:
             # Create database engine
             engine = create_engine(self._data_lake.db_url)
-            
+
             # Calculate adaptive sample size if not provided
             if sample_size is None:
                 # Get total row count. Use the underlying DbSource schema rather
@@ -101,9 +101,9 @@ class Profiler:
                         table_name = f"{db_schema}.{table_name}"
                     result = connection.execute(text(f"SELECT COUNT(*) FROM {table_name}"))
                     total_rows = result.fetchone()[0]
-                
+
                 sample_size = self.calculate_adaptive_sample_size(total_rows=total_rows)
-            
+
             # Profile each column
             for column in self._profiled_columns:
                 self._profile_column(
@@ -111,9 +111,9 @@ class Profiler:
                     column=column,
                     sample_size=sample_size
                 )
-            
+
             engine.dispose()
-            
+
         except SQLAlchemyError as exc:
             raise DatabaseError(f"Database profiling failed: {exc}")
         except (ValueError, TypeError, AttributeError) as exc:
@@ -128,14 +128,14 @@ class Profiler:
             *,
             sample_size: int
     ) -> None:
-        """
-        Profile a single column by sampling its data and analyzing the values.
-        
+        """Profile a single column by sampling its data and analyzing the
+        values.
+
         Args:
             engine: SQLAlchemy engine instance
             column: Column object to profile (from private copy)
             sample_size: Number of rows to sample
-            
+
         Raises:
             SQLAlchemyError: If database query fails
         """
@@ -146,13 +146,13 @@ class Profiler:
         # Avoid schema prefix for SQLite
         if db_schema and 'sqlite' not in self._data_lake.db_url:
             table_name = f"{db_schema}.{table_name}"
-        
+
         # Use ORDER BY RANDOM() for SQLite or RAND() for other databases
         if 'sqlite' in self._data_lake.db_url:
             order_clause = "ORDER BY RANDOM()"
         else:
             order_clause = "ORDER BY RAND()"
-        
+
         query = f"""
             SELECT {column.name}
             FROM {table_name}
@@ -160,16 +160,16 @@ class Profiler:
             {order_clause}
             LIMIT {sample_size}
         """
-        
+
         # Execute query and collect values
         with engine.connect() as connection:
             result = connection.execute(text(query))
             values = [row[0] for row in result.fetchall()]
-        
+
         # Profile the values using the profile_values function
         if values:
             profiling_result = TypeInference.profile_values(values)
-            
+
             # Map the profiling result to our DataType enum
             inferred_type = self._map_tools_datatype_to_source_datatype(profiling_result)
             if inferred_type is not None:
@@ -179,14 +179,15 @@ class Profiler:
             self,
             tools_datatype: StDataType
     ) -> DataType | None:
-        """
-        Map splurge_tools.type_helper.DataType to splurge_data_profiler.source.DataType.
-        
+        """Map splurge_tools.type_helper.DataType to
+        splurge_data_profiler.source.DataType.
+
         Args:
             tools_datatype: DataType from splurge_tools.type_helper
-            
+
         Returns:
-            Mapped DataType from splurge_data_profiler.source, or None if no mapping
+            Mapped DataType from splurge_data_profiler.source, or None if no
+            mapping
         """
         mapping = {
             StDataType.STRING: DataType.TEXT,
@@ -200,14 +201,14 @@ class Profiler:
             StDataType.EMPTY: DataType.TEXT,  # Empty values default to TEXT
             StDataType.NONE: DataType.TEXT,   # None values default to TEXT
         }
-        
+
         return mapping.get(tools_datatype)
 
     @property
     def profiled_columns(self) -> list[Column]:
         """Get the profiled columns with updated inferred types."""
         return self._profiled_columns.copy()
-    
+
     @property
     def data_lake(self) -> DataLake:
         """Get the data lake instance."""
@@ -218,36 +219,38 @@ class Profiler:
             *,
             table_name_suffix: str = "_inferred"
     ) -> str:
-        """
-        Create a new table with original text columns and cast columns based on inferred types.
-        
+        """Create a new table with original text columns and cast columns based
+        on inferred types.
+
         Creates a table named <original_table_name>_inferred with:
         - Original columns as VARCHAR (preserving original text values)
         - Cast columns named <original_column_name>_cast with inferred types
         - Uses splurge_tools.type_helper.String casting methods for population
-        
+
         Args:
-            table_name_suffix: Suffix to append to original table name (default: "_inferred")
-            
+            table_name_suffix: Suffix to append to original table name
+                (default: "_inferred")
+
         Returns:
             Name of the created table
-            
+
         Raises:
-            RuntimeError: If profiling has not been performed or if table creation fails
-        """       
-        
+            RuntimeError: If profiling has not been performed or if table
+                creation fails
+        """
+
         try:
             # Create database engine
             engine = create_engine(self._data_lake.db_url)
-            
+
             # Enable WAL mode for SQLite
             with engine.connect() as connection:
                 if 'sqlite' in self._data_lake.db_url:
                     connection.execute(text("PRAGMA journal_mode=WAL;"))
-            
+
             # Generate new table name
             new_table_name = f"{self._data_lake.db_table}{table_name_suffix}"
-            
+
             # Drop the inferred table if it exists (for SQLite and other DBs)
             with engine.connect() as connection:
                 connection.execute(text(f"DROP TABLE IF EXISTS {new_table_name}"))
@@ -255,7 +258,7 @@ class Profiler:
             # Create metadata and table
             metadata = MetaData()
             table_columns = []
-            
+
             # Add original text columns (VARCHAR)
             for column in self._profiled_columns:
                 # Original column (VARCHAR)
@@ -265,7 +268,7 @@ class Profiler:
                     nullable=True
                 )
                 table_columns.append(original_col)
-                
+
                 # Cast column based on inferred type
                 cast_col_name = f"{column.name}_cast"
                 cast_col_type = self._get_sqlalchemy_type_for_datatype(column.inferred_type)
@@ -275,22 +278,22 @@ class Profiler:
                     nullable=True
                 )
                 table_columns.append(cast_col)
-            
+
             # Create the table
             new_table = Table(new_table_name, metadata, *table_columns)
-            
+
             # Create table in database
             metadata.create_all(engine)
-            
+
             # Populate the table with data
             self._populate_inferred_table(
                 engine=engine,
                 new_table=new_table
             )
-            
+
             engine.dispose()
             return new_table_name
-            
+
         except SQLAlchemyError as exc:
             raise DatabaseError(f"Failed to create inferred table: {exc}")
         except (ValueError, TypeError, AttributeError) as exc:
@@ -302,19 +305,18 @@ class Profiler:
             self,
             datatype: DataType
     ) -> Any:
-        """
-        Map DataType enum to SQLAlchemy type.
-        
+        """Map DataType enum to SQLAlchemy type.
+
         Args:
             datatype: DataType from splurge_data_profiler.source
-            
+
         Returns:
             SQLAlchemy type class
         """
         # Only TEXT should be VARCHAR (MIXED, EMPTY, NONE are already mapped to TEXT)
         if datatype == DataType.TEXT:
             return SAString
-        
+
         mapping = {
             DataType.INTEGER: Integer,
             DataType.FLOAT: Float,
@@ -332,14 +334,13 @@ class Profiler:
             *,
             batch_size: int = 1000
     ) -> None:
-        """
-        Populate the inferred table with data from the original table.
-        
+        """Populate the inferred table with data from the original table.
+
         Args:
             engine: SQLAlchemy engine instance
             new_table: The new table object
             batch_size: Number of rows to process in each batch
-            
+
         Raises:
             SQLAlchemyError: If data population fails
         """
@@ -350,31 +351,31 @@ class Profiler:
         db_schema = self._data_lake.db_source.db_schema
         if db_schema:
             original_table_name = f"{db_schema}.{original_table_name}"
-        
+
         # Build column list for SELECT
         original_columns = [col.name for col in self._profiled_columns]
         select_columns = ", ".join(original_columns)
-        
+
         # Query to get all data from original table
         query = f"SELECT {select_columns} FROM {original_table_name}"
-        
+
         batch_data = []
-        
+
         with engine.connect() as connection:
             # Enable WAL mode for SQLite
             if 'sqlite' in self._data_lake.db_url:
                 connection.execute(text("PRAGMA journal_mode=WAL;"))
             result = connection.execute(text(query))
-            
+
             for row in result:
                 # Create row data for new table
                 row_data = {}
-                
+
                 # Add original text values
                 for i, column in enumerate(self._profiled_columns):
                     original_value = row[i]
                     row_data[column.name] = original_value
-                    
+
                     # Add cast value
                     cast_col_name = f"{column.name}_cast"
                     cast_value = self._cast_value(
@@ -382,9 +383,9 @@ class Profiler:
                         target_type=column.inferred_type
                     )
                     row_data[cast_col_name] = cast_value
-                
+
                 batch_data.append(row_data)
-                
+
                 # Insert batch when it reaches the batch size
                 if len(batch_data) >= batch_size:
                     self._insert_batch_to_table(
@@ -393,7 +394,7 @@ class Profiler:
                         batch_data=batch_data
                     )
                     batch_data = []
-            
+
             # Insert any remaining data in the final batch
             if batch_data:
                 self._insert_batch_to_table(
@@ -408,25 +409,25 @@ class Profiler:
             *,
             target_type: DataType
     ) -> Any:
-        """
-        Cast a value to the target type using splurge_tools.type_helper.String methods.
-        
+        """Cast a value to the target type using
+        splurge_tools.type_helper.String methods.
+
         Args:
             value: The value to cast
             target_type: The target data type
-            
+
         Returns:
             Cast value or None if casting fails
         """
         if value is None:
             return None
-        
+
         # Convert to string for processing
         str_value = str(value).strip()
-        
+
         if not str_value:
             return None
-        
+
         try:
             # Use String class methods for casting (they are class methods)
             if target_type == DataType.INTEGER:
@@ -456,7 +457,7 @@ class Profiler:
             else:
                 # For TEXT, MIXED, EMPTY, NONE - return original string value
                 return str_value
-                
+
         except (ValueError, TypeError):
             # If casting fails, return None for non-TEXT types
             if target_type == DataType.TEXT:
@@ -471,14 +472,13 @@ class Profiler:
             *,
             batch_data: list[dict[str, Any]]
     ) -> None:
-        """
-        Insert a batch of data into the specified table.
-        
+        """Insert a batch of data into the specified table.
+
         Args:
             engine: SQLAlchemy engine instance
             table: The table to insert into
             batch_data: List of dictionaries representing rows to insert
-            
+
         Raises:
             SQLAlchemyError: If insertion fails
         """
@@ -487,13 +487,13 @@ class Profiler:
             insert_stmt = insert(table)
             _ = connection.execute(insert_stmt, batch_data)
             connection.commit()
-    
+
     def __str__(self) -> str:
         return f"Profiler(data_lake={self._data_lake}, profiled_columns={len(self._profiled_columns)})"
-    
+
     def __repr__(self) -> str:
         return f"Profiler(data_lake={self._data_lake}, profiled_columns={self._profiled_columns})"
-    
+
     def __eq__(self, other: Any) -> bool:
         if not isinstance(other, Profiler):
             return False

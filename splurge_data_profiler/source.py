@@ -51,36 +51,36 @@ class Column:
     def name(self) -> str:
         """Get the column name."""
         return self._name
-    
+
     @property
     def inferred_type(self) -> DataType:
         """Get the inferred data type from profiling."""
         return self._inferred_type
-    
+
     @inferred_type.setter
     def inferred_type(self, value: DataType) -> None:
         """Set the inferred data type from profiling."""
         self._inferred_type = value
-    
+
     @property
     def raw_type(self) -> DataType:
         """Get the raw data type from the source."""
         return self._raw_type
-    
+
     @property
     def is_nullable(self) -> bool:
         """Get whether the column can contain null values."""
         return self._is_nullable
-    
+
     def __str__(self) -> str:
         return f"{self._name} ({self._inferred_type})"
-    
+
     def __repr__(self) -> str:
         return (
             f"Column(name={self._name}, inferred_type={self._inferred_type}, "
             f"raw_type={self._raw_type}, is_nullable={self._is_nullable})"
         )
-    
+
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Column):
             return NotImplemented
@@ -115,24 +115,24 @@ class Source(ABC):
     def columns(self) -> list[Column]:
         """Get the list of column definitions."""
         return self._columns.copy()
-    
+
     def __str__(self) -> str:
         return f"Source(columns={self._columns})"
-    
+
     def __repr__(self) -> str:
         return f"Source(columns={self._columns})"
-    
+
     def __eq__(self, other: Any) -> bool:
         if not isinstance(other, Source):
             return False
         return self._columns == other._columns
-    
+
     def __iter__(self) -> Iterator[Column]:
         return iter(self._columns)
-    
+
     def __len__(self) -> int:
         return len(self._columns)
-    
+
     def __getitem__(self, index: int) -> Column:
         return self._columns[index]
 
@@ -186,52 +186,52 @@ class DsvSource(Source):
     def file_path(self) -> str | Path:
         """Get the file path."""
         return self._file_path
-    
+
     @property
     def delimiter(self) -> str:
         """Get the delimiter character."""
         return self._delimiter
-    
+
     @property
     def bookend(self) -> str:
         """Get the bookend character."""
         return self._bookend
-    
+
     @property
     def bookend_strip(self) -> bool:
         """Get whether to strip bookend characters."""
         return self._bookend_strip
-    
+
     @property
     def encoding(self) -> str:
         """Get the file encoding."""
         return self._encoding
-    
+
     @property
     def skip_header_rows(self) -> int:
         """Get the number of header rows to skip."""
         return self._skip_header_rows
-    
+
     @property
     def skip_footer_rows(self) -> int:
         """Get the number of footer rows to skip."""
         return self._skip_footer_rows
-    
+
     @property
     def header_rows(self) -> int:
         """Get the number of header rows."""
         return self._header_rows
-    
+
     @property
     def strip(self) -> bool:
         """Get whether to strip whitespace from values."""
         return self._strip
-    
+
     @property
     def skip_empty_rows(self) -> bool:
         """Get whether to skip empty rows."""
         return self._skip_empty_rows
-    
+
     def _initialize(self) -> list[Column]:
         """
         Initialize the header columns from the file.
@@ -239,8 +239,8 @@ class DsvSource(Source):
         try:
             raw_header_model = TextFileHelper.preview(
                 self._file_path,
-                max_lines=self._header_rows,               
-                strip=self._strip,                
+                max_lines=self._header_rows,
+                strip=self._strip,
                 encoding=self._encoding,
                 skip_header_rows=self._skip_header_rows
             )
@@ -252,7 +252,7 @@ class DsvSource(Source):
                 bookend_strip=self._bookend_strip,
                 strip=self._strip
             )
-            
+
             data_model = TabularDataModel(
                 raw_data_model,
                 header_rows=self._header_rows,
@@ -271,8 +271,8 @@ class DsvSource(Source):
             raise FileProcessingError(f"Failed to initialize columns from file: {exc}")
         except Exception as exc:
             raise FileProcessingError(f"Unexpected error initializing columns from file: {exc}")
-    
-    
+
+
     def __str__(self) -> str:
         return (
             f"DsvSource(file_path={self._file_path}, delimiter={self._delimiter}, "
@@ -281,7 +281,7 @@ class DsvSource(Source):
             f"skip_footer_rows={self._skip_footer_rows}, header_rows={self._header_rows}, "
             f"skip_empty_rows={self._skip_empty_rows}, columns={self._columns})"
         )
-    
+
     def __repr__(self) -> str:
         return (
             f"DsvSource(file_path={self._file_path}, delimiter={self._delimiter}, "
@@ -290,7 +290,7 @@ class DsvSource(Source):
             f"skip_footer_rows={self._skip_footer_rows}, header_rows={self._header_rows}, "
             f"skip_empty_rows={self._skip_empty_rows}, columns={self._columns})"
         )
-    
+
     def __eq__(self, other: Any) -> bool:
         if not isinstance(other, DsvSource):
             return False
@@ -307,7 +307,7 @@ class DsvSource(Source):
             self._skip_empty_rows == other._skip_empty_rows and
             self._columns == other._columns
         )
-    
+
 
 
 class DbSource(Source):
@@ -332,7 +332,7 @@ class DbSource(Source):
         self._db_schema = db_schema
         self._db_table = db_table
         super().__init__(columns=self._initialize())
-    
+
     @property
     def db_url(self) -> str:
         """Get the database URL."""
@@ -399,16 +399,22 @@ class DbSource(Source):
                 columns.append(column)
 
             return columns
-        
+
         except SQLAlchemyError as exc:
             raise DatabaseError(f"Failed to initialize columns from database: {exc}")
 
     def __str__(self) -> str:
-        return f"DbSource(db_url={self._db_url}, schema={self._db_schema}, table={self._db_table}, columns={len(self._columns)})"
-    
+        return (
+            f"DbSource(db_url={self._db_url}, schema={self._db_schema}, "
+            f"table={self._db_table}, columns={len(self._columns)})"
+        )
+
     def __repr__(self) -> str:
-        return f"DbSource(db_url={self._db_url}, schema={self._db_schema}, table={self._db_table}, columns={self._columns})"
-    
+        return (
+            f"DbSource(db_url={self._db_url}, schema={self._db_schema}, "
+            f"table={self._db_table}, columns={self._columns})"
+        )
+
     def __eq__(self, other: Any) -> bool:
         if not isinstance(other, DbSource):
             return False

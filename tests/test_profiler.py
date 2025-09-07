@@ -818,6 +818,12 @@ class TestProfilerEdgeCases:
                 expected = expected_sample
                 assert sample_size == expected, f"Expected {expected} for {total_rows} rows, got {sample_size}"
 
+            # Ensure the test_cases_20 are also exercised to avoid unused assignment
+            for total_rows, expected_sample in test_cases_20:
+                sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
+                expected = expected_sample
+                assert sample_size == expected, f"Expected {expected} for {total_rows} rows, got {sample_size}"
+
             # Test boundary conditions and edge cases
             boundary_tests = [
                 # Test exact boundaries

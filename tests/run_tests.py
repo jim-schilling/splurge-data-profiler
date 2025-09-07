@@ -73,7 +73,7 @@ Examples:
     args = parser.parse_args()
 
     # Base pytest command
-    pytest_cmd = [sys.executable, "-m", "pytest"]
+    pytest_cmd = [sys.executable, "-m", "pytest", "-n", "auto"]
 
     # Add coverage if requested
     if args.coverage:
