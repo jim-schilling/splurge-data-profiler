@@ -76,7 +76,22 @@ class PerformanceBenchmarks(unittest.TestCase):
 
     def tearDown(self) -> None:
         """Clean up test fixtures after each test method."""
-        self._temp_dir.cleanup()
+        import time
+        import gc
+        # Force garbage collection to ensure database connections are closed
+        gc.collect()
+        time.sleep(0.1)  # Small delay to allow file handles to be released
+        try:
+            self._temp_dir.cleanup()
+        except (OSError, PermissionError):
+            # On Windows, SQLite files might still be locked
+            # Try again after a longer delay
+            time.sleep(1.0)
+            try:
+                self._temp_dir.cleanup()
+            except (OSError, PermissionError):
+                # If still failing, just continue - temp files will be cleaned up eventually
+                pass
 
     def _generate_dsv(
             self,
@@ -281,21 +296,27 @@ class PerformanceBenchmarks(unittest.TestCase):
         
         return results, actual_db_path
 
-    def test_performance_050k_rows(self) -> None:
-        """Test performance with 50,000 rows."""
-        num_rows = 50000
-        results, actual_db_path = self._run_performance_test(num_rows=num_rows)
-        self._print_performance_summary("test_performance_050k_rows", results, num_rows=num_rows, db_path=actual_db_path)
-
     def test_performance_100k_rows(self) -> None:
         """Test performance with 100,000 rows."""
         num_rows = 100000
         results, actual_db_path = self._run_performance_test(num_rows=num_rows)
         self._print_performance_summary("test_performance_100k_rows", results, num_rows=num_rows, db_path=actual_db_path)
 
+    def test_performance_001k_rows(self) -> None:
+        """Test performance with 1,000 rows."""
+        num_rows = 1000
+        results, actual_db_path = self._run_performance_test(num_rows=num_rows)
+        self._print_performance_summary("test_performance_001k_rows", results, num_rows=num_rows, db_path=actual_db_path)
+
+    def test_performance_005k_rows(self) -> None:
+        """Test performance with 5,000 rows."""
+        num_rows = 5000
+        results, actual_db_path = self._run_performance_test(num_rows=num_rows)
+        self._print_performance_summary("test_performance_005k_rows", results, num_rows=num_rows, db_path=actual_db_path)
+
     def test_adaptive_sampling_scaling(self) -> None:
         """Test adaptive sampling performance across different dataset sizes."""
-        dataset_sizes = [10000, 25000]
+        dataset_sizes = [1000, 5000, 100000]
         for num_rows in dataset_sizes:
             results, actual_db_path = self._run_performance_test(num_rows=num_rows)
             profiling_efficiency = num_rows / results['profiling_time']
@@ -314,7 +335,7 @@ class PerformanceBenchmarks(unittest.TestCase):
 
     def test_memory_efficiency(self) -> None:
         """Test memory efficiency with large datasets."""
-        num_rows = 10000
+        num_rows = 5000
         
         results, actual_db_path = self._run_performance_test(num_rows=num_rows)
         

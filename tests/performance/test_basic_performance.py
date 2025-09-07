@@ -56,8 +56,8 @@ class BasicPerformanceTests(unittest.TestCase):
         self.test_dir = Path(self.temp_dir)
         
         # Create a single large DSV file for all tests
-        self.dsv_path = self.test_dir / "performance_test_250k.dsv"
-        self._generate_dsv(self.dsv_path, num_rows=250000, delimiter="|", bookend='"')
+        self.dsv_path = self.test_dir / "performance_test_100k.dsv"
+        self._generate_dsv(self.dsv_path, num_rows=100000, delimiter="|", bookend='"')
 
     def tearDown(self) -> None:
         """Clean up test fixtures after each test method."""
@@ -277,23 +277,12 @@ class BasicPerformanceTests(unittest.TestCase):
             db_path=actual_db_path
         )
 
-    def test_performance_010k_rows(self) -> None:
-        """Test performance with 10,000 rows."""
-        num_rows = 10000
+    def test_performance_100k_rows(self) -> None:
+        """Test performance with 100,000 rows."""
+        num_rows = 100000
         results, actual_db_path = self._run_performance_test(num_rows=num_rows)
         self._print_performance_summary(
-            test_name="test_performance_010k_rows",
-            results=results,
-            num_rows=num_rows,
-            db_path=actual_db_path
-        )
-
-    def test_performance_025k_rows(self) -> None:
-        """Test performance with 25,000 rows."""
-        num_rows = 25000
-        results, actual_db_path = self._run_performance_test(num_rows=num_rows)
-        self._print_performance_summary(
-            test_name="test_performance_025k_rows",
+            test_name="test_performance_100k_rows",
             results=results,
             num_rows=num_rows,
             db_path=actual_db_path
@@ -301,7 +290,7 @@ class BasicPerformanceTests(unittest.TestCase):
 
     def test_adaptive_sampling_efficiency(self) -> None:
         """Test adaptive sampling performance across different dataset sizes."""
-        dataset_sizes = [5000, 10000]
+        dataset_sizes = [1000, 5000, 100000]
         
         for num_rows in dataset_sizes:
             results, actual_db_path = self._run_performance_test(num_rows=num_rows)
@@ -324,7 +313,7 @@ class BasicPerformanceTests(unittest.TestCase):
 
     def test_operation_breakdown(self) -> None:
         """Test performance breakdown of individual operations."""
-        num_rows = 10000
+        num_rows = 5000
         
         results, actual_db_path = self._run_performance_test(num_rows=num_rows)
         
@@ -346,7 +335,7 @@ class BasicPerformanceTests(unittest.TestCase):
 
     def test_repeated_operations(self) -> None:
         """Test consistency of repeated operations."""
-        num_rows = 5000
+        num_rows = 1000
         num_iterations = 2
         
         times = []

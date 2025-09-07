@@ -4,7 +4,7 @@
 [![Python Versions](https://img.shields.io/pypi/pyversions/splurge-data-profiler.svg)](https://pypi.org/project/splurge-data-profiler/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Documentation](https://img.shields.io/badge/docs-detailed-blue.svg)](docs/README-details.md)
-[![Coverage](https://img.shields.io/badge/coverage-94.21%25-brightgreen.svg)](https://github.com/jim-schilling/splurge-data-profiler)
+[![Coverage](https://img.shields.io/badge/coverage-94%25-brightgreen.svg)](https://github.com/jim-schilling/splurge-data-profiler)
 
 A powerful data profiling tool for delimited and database sources that automatically infers data types and creates optimized data lakes (SQLite database).
 

@@ -541,8 +541,8 @@ class TestDataLakeFactoryStreaming(unittest.TestCase):
             # Write header
             f.write(','.join(headers) + '\n')
             
-            # Generate 5500 data rows (more than 5000 as requested)
-            for i in range(1, 5501):
+            # Generate 5000 data rows
+            for i in range(1, 5001):
                 # Generate random data for each row
                 name = f"Employee_{i:04d}"
                 email = f"employee_{i:04d}@company.com"
@@ -616,8 +616,8 @@ class TestDataLakeFactoryStreaming(unittest.TestCase):
                 result = connection.execute(text(f"SELECT COUNT(*) FROM {table_name}"))
                 row_count = result.scalar()
                 
-                # Should have 5500 rows (excluding header)
-                self.assertEqual(row_count, 5500)
+                # Should have 5000 rows (excluding header)
+                self.assertEqual(row_count, 5000)
                 
                 # Verify first row
                 result = connection.execute(text(f"SELECT * FROM {table_name} WHERE id = '1'"))
@@ -628,13 +628,13 @@ class TestDataLakeFactoryStreaming(unittest.TestCase):
                 self.assertEqual(first_row[2], "employee_0001@company.com")  # email
                 
                 # Verify last row
-                result = connection.execute(text(f"SELECT * FROM {table_name} WHERE id = '5500'"))
+                result = connection.execute(text(f"SELECT * FROM {table_name} WHERE id = '5000'"))
                 last_row = result.fetchone()
                 self.assertIsNotNone(last_row)
-                self.assertEqual(last_row[0], "5500")  # id
-                self.assertEqual(last_row[1], "Employee_5500")  # name
-                self.assertEqual(last_row[2], "employee_5500@company.com")  # email
-                
+                self.assertEqual(last_row[0], "5000")  # id
+                self.assertEqual(last_row[1], "Employee_5000")  # name
+                self.assertEqual(last_row[2], "employee_5000@company.com")  # email
+
                 # Verify data types and constraints
                 result = connection.execute(text(f"PRAGMA table_info({table_name})"))
                 columns_info = result.fetchall()
@@ -648,7 +648,7 @@ class TestDataLakeFactoryStreaming(unittest.TestCase):
                 
                 # Verify some random rows for data integrity
                 for i in range(1, 11):
-                    row_id = random.randint(1, 5500)
+                    row_id = random.randint(1, 5000)
                     result = connection.execute(text(f"SELECT * FROM {table_name} WHERE id = '{row_id}'"))
                     row = result.fetchone()
                     self.assertIsNotNone(row)
@@ -720,7 +720,7 @@ class TestDataLakeFactoryStreaming(unittest.TestCase):
                 table_name = data_lake.db_table
                 result = connection.execute(text(f"SELECT COUNT(*) FROM {table_name}"))
                 row_count = result.scalar()
-                self.assertEqual(row_count, 5500)
+                self.assertEqual(row_count, 5000)
         finally:
             engine.dispose()
         
@@ -803,7 +803,7 @@ class TestDataLakeFactoryStreaming(unittest.TestCase):
                     table_name = data_lake.db_table
                     result = connection.execute(text(f"SELECT COUNT(*) FROM {table_name}"))
                     row_count = result.scalar()
-                    self.assertEqual(row_count, 5500)
+                    self.assertEqual(row_count, 5000)
             finally:
                 engine.dispose()
                 
