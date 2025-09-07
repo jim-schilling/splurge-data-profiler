@@ -3,15 +3,19 @@ from typing import List, Optional, Any, Dict
 from dataclasses import dataclass
 
 from sqlalchemy import (
-    create_engine, text, inspect, MetaData, Table, Column as SAColumn, 
+    create_engine, text, MetaData, Table, Column as SAColumn, 
     String as SAString, Integer, Float, Boolean, Date, DateTime, Time
 )
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
-from splurge_tools.type_helper import profile_values, DataType as ToolsDataType, String
+from splurge_typer.string import String
+from splurge_typer.type_inference import TypeInference
+from splurge_typer.data_type import DataType as StDataType
 
 from splurge_data_profiler.data_lake import DataLake
 from splurge_data_profiler.source import Column, DataType
+from splurge_data_profiler.exceptions import ProfilingError, DatabaseError
+
 
 class Profiler:
 
@@ -107,11 +111,11 @@ class Profiler:
             engine.dispose()
             
         except SQLAlchemyError as exc:
-            raise RuntimeError(f"Database profiling failed: {exc}")
+            raise DatabaseError(f"Database profiling failed: {exc}")
         except (ValueError, TypeError, AttributeError) as exc:
-            raise RuntimeError(f"Profiling failed: {exc}")
+            raise ProfilingError(f"Profiling failed: {exc}")
         except Exception as exc:
-            raise RuntimeError(f"Unexpected error during profiling: {exc}")
+            raise ProfilingError(f"Unexpected error during profiling: {exc}")
 
     def _profile_column(
             self,
@@ -158,7 +162,7 @@ class Profiler:
         
         # Profile the values using the profile_values function
         if values:
-            profiling_result = profile_values(values)
+            profiling_result = TypeInference.profile_values(values)
             
             # Map the profiling result to our DataType enum
             inferred_type = self._map_tools_datatype_to_source_datatype(profiling_result)
@@ -167,7 +171,7 @@ class Profiler:
 
     def _map_tools_datatype_to_source_datatype(
             self,
-            tools_datatype: ToolsDataType
+            tools_datatype: StDataType
     ) -> Optional[DataType]:
         """
         Map splurge_tools.type_helper.DataType to splurge_data_profiler.source.DataType.
@@ -179,16 +183,16 @@ class Profiler:
             Mapped DataType from splurge_data_profiler.source, or None if no mapping
         """
         mapping = {
-            ToolsDataType.STRING: DataType.TEXT,
-            ToolsDataType.INTEGER: DataType.INTEGER,
-            ToolsDataType.FLOAT: DataType.FLOAT,
-            ToolsDataType.BOOLEAN: DataType.BOOLEAN,
-            ToolsDataType.DATE: DataType.DATE,
-            ToolsDataType.TIME: DataType.TIME,
-            ToolsDataType.DATETIME: DataType.DATETIME,
-            ToolsDataType.MIXED: DataType.TEXT,  # Mixed types default to TEXT
-            ToolsDataType.EMPTY: DataType.TEXT,  # Empty values default to TEXT
-            ToolsDataType.NONE: DataType.TEXT,   # None values default to TEXT
+            StDataType.STRING: DataType.TEXT,
+            StDataType.INTEGER: DataType.INTEGER,
+            StDataType.FLOAT: DataType.FLOAT,
+            StDataType.BOOLEAN: DataType.BOOLEAN,
+            StDataType.DATE: DataType.DATE,
+            StDataType.TIME: DataType.TIME,
+            StDataType.DATETIME: DataType.DATETIME,
+            StDataType.MIXED: DataType.TEXT,  # Mixed types default to TEXT
+            StDataType.EMPTY: DataType.TEXT,  # Empty values default to TEXT
+            StDataType.NONE: DataType.TEXT,   # None values default to TEXT
         }
         
         return mapping.get(tools_datatype)
@@ -282,11 +286,11 @@ class Profiler:
             return new_table_name
             
         except SQLAlchemyError as exc:
-            raise RuntimeError(f"Failed to create inferred table: {exc}")
+            raise DatabaseError(f"Failed to create inferred table: {exc}")
         except (ValueError, TypeError, AttributeError) as exc:
-            raise RuntimeError(f"Error creating inferred table: {exc}")
+            raise ProfilingError(f"Error creating inferred table: {exc}")
         except Exception as exc:
-            raise RuntimeError(f"Unexpected error creating inferred table: {exc}")
+            raise ProfilingError(f"Unexpected error creating inferred table: {exc}")
 
     def _get_sqlalchemy_type_for_datatype(
             self,
@@ -431,7 +435,10 @@ class Profiler:
                     # Try the String.to_bool method as fallback
                     try:
                         bool_result = String.to_bool(str_value)
-                        return bool(bool_result)
+                        if bool_result is not None:
+                            return bool(bool_result)
+                        else:
+                            return None
                     except (ValueError, TypeError):
                         return None
             elif target_type == DataType.DATE:
@@ -472,7 +479,7 @@ class Profiler:
         with engine.connect() as connection:
             from sqlalchemy import insert
             insert_stmt = insert(table)
-            result = connection.execute(insert_stmt, batch_data)
+            _ = connection.execute(insert_stmt, batch_data)
             connection.commit()
     
     def __str__(self) -> str:

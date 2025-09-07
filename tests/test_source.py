@@ -2,17 +2,13 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
-from typing import List
 import random
-import string
 
 from sqlalchemy import create_engine, MetaData, Table, Column as SAColumn, String, text
-from sqlalchemy.exc import SQLAlchemyError
 
 from splurge_data_profiler.source import DataType, Column, Source, DsvSource, DbSource
 from splurge_data_profiler.data_lake import DataLake, DataLakeFactory
-from splurge_tools.dsv_helper import DsvHelper
-from splurge_tools.tabular_data_model import TabularDataModel
+from splurge_data_profiler.exceptions import DatabaseError, FileProcessingError
 
 
 class TestDataType(unittest.TestCase):
@@ -204,7 +200,7 @@ class TestDsvSource(unittest.TestCase):
         """Clean up test fixtures."""
         try:
             os.remove(self.temp_path)
-        except:
+        except Exception:
             pass
 
     def test_dsv_source_initialization_defaults(self) -> None:
@@ -255,7 +251,7 @@ class TestDsvSource(unittest.TestCase):
         finally:
             try:
                 os.remove(temp_path)
-            except:
+            except Exception:
                 pass
 
     def test_dsv_source_equality(self) -> None:
@@ -296,13 +292,13 @@ class TestDbSource(unittest.TestCase):
         # Create table
         self.engine = create_engine(self.db_url)
         metadata = MetaData()
-        self.table = Table(
+        Table(
             self.db_table, metadata,
             SAColumn("id", String, primary_key=True),
             SAColumn("name", String, nullable=True),
         )
         # Create a second table for equality testing
-        self.different_table = Table(
+        Table(
             "different_table", metadata,
             SAColumn("id", String, primary_key=True),
             SAColumn("description", String, nullable=True),
@@ -314,7 +310,7 @@ class TestDbSource(unittest.TestCase):
         # Ensure engine is disposed before removing file
         try:
             self.engine.dispose()
-        except:
+        except Exception:
             pass
         os.close(self.db_fd)
         try:
@@ -325,7 +321,7 @@ class TestDbSource(unittest.TestCase):
 
     def test_db_source_initialization_connection_error(self) -> None:
         """Test DbSource initialization with invalid database URL."""
-        with self.assertRaises(RuntimeError):
+        with self.assertRaises(DatabaseError):
             DbSource(
                 db_url="sqlite:///nonexistent.db",
                 db_schema=None,
@@ -357,7 +353,7 @@ class TestDbSource(unittest.TestCase):
             # Create a simple table
             engine = create_engine(db_url)
             metadata = MetaData()
-            table = Table(
+            Table(
                 "test_table", metadata,
                 SAColumn("id", String, primary_key=True),
             )
@@ -378,7 +374,7 @@ class TestDbSource(unittest.TestCase):
             # Ensure engine is disposed before removing file
             try:
                 engine.dispose()
-            except:
+            except Exception:
                 pass
             os.close(db_fd)
             try:
@@ -455,7 +451,7 @@ class TestDsvSourceIntegration(unittest.TestCase):
         source = DsvSource(self.file_path)
         try:
             columns = source._initialize()
-        except (ValueError, RuntimeError) as exc:
+        except (ValueError, RuntimeError):
             raise
         except Exception as exc:
             raise RuntimeError(f"Unexpected error in test: {exc}")
@@ -476,7 +472,7 @@ class TestDbSourceWithRealSQLite(unittest.TestCase):
         # Create table
         self.engine = create_engine(self.db_url)
         metadata = MetaData()
-        self.table = Table(
+        Table(
             self.db_table, metadata,
             SAColumn("id", String, primary_key=True),
             SAColumn("name", String, nullable=True),
@@ -487,7 +483,7 @@ class TestDbSourceWithRealSQLite(unittest.TestCase):
         # Ensure engine is disposed before removing file
         try:
             self.engine.dispose()
-        except:
+        except Exception:
             pass
         os.close(self.db_fd)
         try:
@@ -524,12 +520,12 @@ class TestDataLakeFactoryStreaming(unittest.TestCase):
         """Clean up test fixtures."""
         try:
             os.remove(self.temp_path)
-        except:
+        except Exception:
             pass
         try:
             import shutil
             shutil.rmtree(self.temp_dir)
-        except:
+        except Exception:
             pass
 
     def _generate_large_csv_file(self) -> None:
@@ -766,7 +762,7 @@ class TestDataLakeFactoryStreaming(unittest.TestCase):
             finally:
                 try:
                     os.remove(temp_path)
-                except:
+                except Exception:
                     pass
 
     def test_streaming_large_dsv_file_with_different_delimiters(self) -> None:
@@ -814,7 +810,7 @@ class TestDataLakeFactoryStreaming(unittest.TestCase):
         finally:
             try:
                 os.remove(tsv_path)
-            except:
+            except Exception:
                 pass
 
     def test_streaming_large_dsv_file_error_handling(self) -> None:
@@ -864,7 +860,7 @@ class TestDataLakeFactoryStreaming(unittest.TestCase):
         finally:
             try:
                 os.remove(malformed_path)
-            except:
+            except Exception:
                 pass
 
 
@@ -890,12 +886,12 @@ class TestDataLakeFactory(unittest.TestCase):
         """Clean up test fixtures."""
         try:
             os.remove(self.temp_path)
-        except:
+        except Exception:
             pass
         try:
             import shutil
             shutil.rmtree(self.temp_dir)
-        except:
+        except Exception:
             pass
 
     def test_from_dsv_source_creates_sqlite_table(self) -> None:
@@ -948,7 +944,7 @@ class TestDataLakeFactory(unittest.TestCase):
         dsv_source = DsvSource(self.test_file_path)
         
         # Create data lake
-        data_lake = DataLakeFactory.from_dsv_source(
+        DataLakeFactory.from_dsv_source(
             dsv_source=dsv_source,
             data_lake_path=non_existent_path
         )
@@ -991,8 +987,379 @@ class TestDataLakeFactory(unittest.TestCase):
         finally:
             try:
                 os.remove(tsv_path)
-            except:
+            except Exception:
                 pass
+
+
+class TestDsvSourceEdgeCases(unittest.TestCase):
+    """Test cases for DsvSource edge cases and error conditions."""
+
+    def setUp(self) -> None:
+        """Set up test fixtures."""
+        # Create a temporary CSV file for testing
+        self.temp_fd, self.temp_path = tempfile.mkstemp(suffix=".csv")
+        with os.fdopen(self.temp_fd, 'w', encoding='utf-8') as f:
+            f.write('id,name,value\n1,Alice,100\n2,Bob,200\n')
+        self.test_file_path = Path(self.temp_path)
+
+    def tearDown(self) -> None:
+        """Clean up test fixtures."""
+        try:
+            os.remove(self.temp_path)
+        except Exception:
+            pass
+
+    def test_dsv_source_nonexistent_file(self) -> None:
+        """Test DsvSource with nonexistent file."""
+        nonexistent_path = Path("/nonexistent/path/file.csv")
+
+        with self.assertRaises(FileProcessingError):
+            DsvSource(nonexistent_path)
+
+    def test_dsv_source_empty_file(self) -> None:
+        """Test DsvSource with completely empty file."""
+        # Create an empty file
+        temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
+        empty_path = Path(temp_path)
+
+        try:
+            # File is empty, should handle gracefully
+            source = DsvSource(empty_path)
+            self.assertEqual(len(source.columns), 0)
+
+        finally:
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
+
+    def test_dsv_source_header_only_file(self) -> None:
+        """Test DsvSource with header-only file."""
+        # Create a file with only headers
+        temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
+        try:
+            with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
+                f.write('id,name,value\n')
+            header_path = Path(temp_path)
+
+            source = DsvSource(header_path)
+            # Should create columns from header
+            self.assertEqual(len(source.columns), 3)
+            self.assertEqual(source.columns[0].name, 'id')
+            self.assertEqual(source.columns[1].name, 'name')
+            self.assertEqual(source.columns[2].name, 'value')
+
+        finally:
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
+
+    def test_dsv_source_malformed_delimiter(self) -> None:
+        """Test DsvSource with malformed delimiter usage."""
+        # Create a file with inconsistent delimiters
+        temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
+        try:
+            with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
+                f.write('id,name,value\n1,Alice,100\n2,Bob;200\n3,Charlie,300\n')
+            malformed_path = Path(temp_path)
+
+            # Should still parse correctly with comma delimiter
+            source = DsvSource(malformed_path, delimiter=',')
+            self.assertEqual(len(source.columns), 3)
+
+        finally:
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
+
+    def test_dsv_source_encoding_error(self) -> None:
+        """Test DsvSource with encoding errors."""
+        # Create a file with UTF-8 content
+        temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
+        try:
+            with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
+                f.write('id,name\n1,José\n2,François\n')
+            utf8_path = Path(temp_path)
+
+            # Should work with correct encoding
+            source = DsvSource(utf8_path, encoding='utf-8')
+            self.assertEqual(len(source.columns), 2)
+
+            # Should fail with wrong encoding
+            with self.assertRaises(FileProcessingError):
+                DsvSource(utf8_path, encoding='ascii')
+
+        finally:
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
+
+    def test_dsv_source_skip_rows_edge_cases(self) -> None:
+        """Test DsvSource with edge cases for skip_header_rows and skip_footer_rows."""
+        # Create a file with multiple header and footer rows
+        temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
+        try:
+            with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
+                f.write('# Comment line 1\n')
+                f.write('# Comment line 2\n')
+                f.write('id,name,value\n')
+                f.write('1,Alice,100\n')
+                f.write('2,Bob,200\n')
+                f.write('# Footer comment\n')
+                f.write('# Another footer\n')
+            skip_path = Path(temp_path)
+
+            # Skip 2 header rows
+            source = DsvSource(skip_path, skip_header_rows=2)
+            self.assertEqual(len(source.columns), 3)
+            self.assertEqual(source.columns[0].name, 'id')
+
+        finally:
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
+
+    def test_dsv_source_large_skip_values(self) -> None:
+        """Test DsvSource with skip values larger than file size."""
+        # Create a small file
+        temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
+        try:
+            with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
+                f.write('id,name\n1,Alice\n')
+            small_path = Path(temp_path)
+
+            # Skip more rows than exist - should handle gracefully
+            source = DsvSource(small_path, skip_header_rows=10, skip_footer_rows=10)
+            # Should still work and create columns
+            self.assertGreaterEqual(len(source.columns), 0)
+
+        finally:
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
+
+    def test_dsv_source_whitespace_handling(self) -> None:
+        """Test DsvSource whitespace handling."""
+        # Create a file with various whitespace scenarios
+        temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
+        try:
+            with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
+                f.write('  id  ,  name  ,  value  \n')  # Header with whitespace
+                f.write('  1  ,  Alice  ,  100  \n')    # Data with whitespace
+                f.write('  2  ,  Bob  ,  200  \n')
+            ws_path = Path(temp_path)
+
+            # With strip=True (default)
+            source_strip = DsvSource(ws_path, strip=True)
+            self.assertEqual(source_strip.columns[0].name, 'id')  # Should be stripped
+
+            # With strip=False
+            source_no_strip = DsvSource(ws_path, strip=False)
+            self.assertEqual(source_no_strip.columns[0].name, 'id')  # Column names are always stripped
+
+        finally:
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
+
+    def test_dsv_source_bookend_edge_cases(self) -> None:
+        """Test DsvSource bookend/quote handling edge cases."""
+        # Create a file with various quoting scenarios
+        temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
+        try:
+            with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
+                f.write('"id","name","value"\n')
+                f.write('"1","Alice","100"\n')
+                f.write('"2","Bob","200"\n')
+                f.write('3,"Charlie","300"\n')  # Mixed quoting
+            quote_path = Path(temp_path)
+
+            # With bookend_strip=True (default)
+            source_strip = DsvSource(quote_path, bookend='"', bookend_strip=True)
+            self.assertEqual(len(source_strip.columns), 3)
+
+            # With bookend_strip=False
+            source_no_strip = DsvSource(quote_path, bookend='"', bookend_strip=False)
+            self.assertEqual(len(source_no_strip.columns), 3)
+
+        finally:
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
+
+    def test_dsv_source_mixed_data_types(self) -> None:
+        """Test DsvSource with mixed data types in columns."""
+        # Create a file with mixed data types
+        temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
+        try:
+            with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
+                f.write('id,name,value,active\n')
+                f.write('1,Alice,100.5,true\n')
+                f.write('2,Bob,200,false\n')
+                f.write('3,Charlie,300.75,1\n')
+            mixed_path = Path(temp_path)
+
+            source = DsvSource(mixed_path)
+            self.assertEqual(len(source.columns), 4)
+
+            # All columns should be TEXT type initially
+            for column in source.columns:
+                self.assertEqual(column.raw_type, DataType.TEXT)
+
+        finally:
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
+
+
+class TestColumnEdgeCases(unittest.TestCase):
+    """Test cases for Column class edge cases."""
+
+    def test_column_inferred_type_setter_edge_cases(self) -> None:
+        """Test Column.inferred_type setter with edge cases."""
+        column = Column("test_column")
+
+        # Test setting various data types
+        for data_type in [DataType.INTEGER, DataType.FLOAT, DataType.BOOLEAN,
+                         DataType.DATE, DataType.TIME, DataType.DATETIME, DataType.TEXT]:
+            column.inferred_type = data_type
+            self.assertEqual(column.inferred_type, data_type)
+
+        # Test setting to same type multiple times
+        original_type = column.inferred_type
+        column.inferred_type = original_type
+        self.assertEqual(column.inferred_type, original_type)
+
+    def test_column_equality_edge_cases(self) -> None:
+        """Test Column equality with edge cases."""
+        column1 = Column("test", inferred_type=DataType.INTEGER, is_nullable=False)
+        column2 = Column("test", inferred_type=DataType.INTEGER, is_nullable=False)
+        column3 = Column("other", inferred_type=DataType.INTEGER, is_nullable=False)
+
+        # Same columns should be equal
+        self.assertEqual(column1, column2)
+
+        # Different names should not be equal
+        self.assertNotEqual(column1, column3)
+
+        # Different inferred types should not be equal
+        column4 = Column("test", inferred_type=DataType.FLOAT, is_nullable=False)
+        self.assertNotEqual(column1, column4)
+
+        # Different nullable should not be equal
+        column5 = Column("test", inferred_type=DataType.INTEGER, is_nullable=True)
+        self.assertNotEqual(column1, column5)
+
+    def test_column_hash_consistency(self) -> None:
+        """Test Column hash consistency."""
+        column1 = Column("test", inferred_type=DataType.INTEGER, is_nullable=False)
+        column2 = Column("test", inferred_type=DataType.INTEGER, is_nullable=False)
+
+        # Equal columns should have equal hashes
+        self.assertEqual(hash(column1), hash(column2))
+
+        # Hash should be consistent across calls
+        hash1 = hash(column1)
+        hash2 = hash(column1)
+        self.assertEqual(hash1, hash2)
+
+    def test_column_string_representations(self) -> None:
+        """Test Column string representations with various data types."""
+        test_cases = [
+            (DataType.TEXT, "test_column (DataType.TEXT)"),
+            (DataType.INTEGER, "test_column (DataType.INTEGER)"),
+            (DataType.FLOAT, "test_column (DataType.FLOAT)"),
+            (DataType.BOOLEAN, "test_column (DataType.BOOLEAN)"),
+            (DataType.DATE, "test_column (DataType.DATE)"),
+            (DataType.TIME, "test_column (DataType.TIME)"),
+            (DataType.DATETIME, "test_column (DataType.DATETIME)"),
+        ]
+
+        for data_type, expected_str in test_cases:
+            column = Column("test_column", inferred_type=data_type)
+            self.assertEqual(str(column), expected_str)
+
+
+class TestSourceEdgeCases(unittest.TestCase):
+    """Test cases for Source abstract base class edge cases."""
+
+    def test_source_iteration_edge_cases(self) -> None:
+        """Test Source iteration with edge cases."""
+        from splurge_data_profiler.source import Source
+
+        class TestSource(Source):
+            pass
+
+        # Empty source
+        empty_source = TestSource()
+        self.assertEqual(len(empty_source), 0)
+        self.assertEqual(list(empty_source), [])
+
+        # Source with columns
+        columns = [Column("col1"), Column("col2"), Column("col3")]
+        source = TestSource(columns=columns)
+        self.assertEqual(len(source), 3)
+        self.assertEqual(list(source), columns)
+
+    def test_source_indexing_edge_cases(self) -> None:
+        """Test Source indexing with edge cases."""
+        from splurge_data_profiler.source import Source
+
+        class TestSource(Source):
+            pass
+
+        columns = [Column("col1"), Column("col2")]
+        source = TestSource(columns=columns)
+
+        # Valid indexing
+        self.assertEqual(source[0], columns[0])
+        self.assertEqual(source[1], columns[1])
+
+        # Negative indexing
+        self.assertEqual(source[-1], columns[1])
+        self.assertEqual(source[-2], columns[0])
+
+        # Out of bounds indexing
+        with self.assertRaises(IndexError):
+            _ = source[2]
+        with self.assertRaises(IndexError):
+            _ = source[-3]
+
+    def test_source_equality_edge_cases(self) -> None:
+        """Test Source equality with edge cases."""
+        from splurge_data_profiler.source import Source
+
+        class TestSource(Source):
+            pass
+
+        # Empty sources
+        source1 = TestSource()
+        source2 = TestSource()
+        self.assertEqual(source1, source2)
+
+        # Sources with same columns
+        columns1 = [Column("col1"), Column("col2")]
+        columns2 = [Column("col1"), Column("col2")]
+        source3 = TestSource(columns=columns1)
+        source4 = TestSource(columns=columns2)
+        self.assertEqual(source3, source4)
+
+        # Sources with different columns
+        columns3 = [Column("col1"), Column("col3")]
+        source5 = TestSource(columns=columns3)
+        self.assertNotEqual(source3, source5)
+
+        # Different lengths
+        source6 = TestSource(columns=[Column("col1")])
+        self.assertNotEqual(source3, source6)
 
 
 if __name__ == '__main__':

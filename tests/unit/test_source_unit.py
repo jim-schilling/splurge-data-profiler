@@ -9,75 +9,9 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import Mock, patch
 
-from splurge_data_profiler.source import DataType, Column, Source, DsvSource, DbSource
-
-
-class TestDataType(unittest.TestCase):
-    """Unit tests for DataType enum."""
-
-    def test_data_type_values(self) -> None:
-        """Test that all DataType enum values are correct."""
-        expected_values = {
-            "BOOLEAN": "BOOLEAN",
-            "DATE": "DATE", 
-            "DATETIME": "DATETIME",
-            "FLOAT": "FLOAT",
-            "INTEGER": "INTEGER",
-            "TEXT": "TEXT",
-            "TIME": "TIME"
-        }
-        
-        for enum_name, expected_value in expected_values.items():
-            enum_member = getattr(DataType, enum_name)
-            self.assertEqual(enum_member.value, expected_value)
-
-    def test_data_type_membership(self) -> None:
-        """Test that DataType enum contains expected members."""
-        expected_members = {"BOOLEAN", "DATE", "DATETIME", "FLOAT", "INTEGER", "TEXT", "TIME"}
-        actual_members = {member.name for member in DataType}
-        self.assertEqual(actual_members, expected_members)
-
-
-class TestColumn(unittest.TestCase):
-    """Unit tests for Column class."""
-
-    def test_column_initialization_defaults(self) -> None:
-        """Test Column initialization with default values."""
-        column = Column("test_column")
-        
-        self.assertEqual(column.name, "test_column")
-        self.assertEqual(column.inferred_type, DataType.TEXT)
-        self.assertEqual(column.raw_type, DataType.TEXT)
-        self.assertTrue(column.is_nullable)
-
-    def test_column_initialization_custom_values(self) -> None:
-        """Test Column initialization with custom values."""
-        column = Column(
-            name="custom_column",
-            inferred_type=DataType.INTEGER,
-            is_nullable=False
-        )
-        
-        self.assertEqual(column.name, "custom_column")
-        self.assertEqual(column.inferred_type, DataType.INTEGER)
-        self.assertEqual(column.raw_type, DataType.TEXT)
-        self.assertFalse(column.is_nullable)
-
-    def test_column_string_representation(self) -> None:
-        """Test Column string representation."""
-        column = Column("test_column", inferred_type=DataType.FLOAT)
-        
-        expected_str = "test_column (DataType.FLOAT)"
-        self.assertEqual(str(column), expected_str)
-
-    def test_column_repr_representation(self) -> None:
-        """Test Column repr representation."""
-        column = Column("test_column", inferred_type=DataType.FLOAT, is_nullable=False)
-        
-        expected_repr = "Column(name=test_column, inferred_type=DataType.FLOAT, raw_type=DataType.TEXT, is_nullable=False)"
-        self.assertEqual(repr(column), expected_repr)
+from splurge_data_profiler.source import Column, Source, DsvSource, DbSource
+from splurge_data_profiler.exceptions import DatabaseError
 
 
 class TestSource(unittest.TestCase):
@@ -219,7 +153,7 @@ class TestDsvSource(unittest.TestCase):
         finally:
             try:
                 os.remove(temp_path)
-            except:
+            except Exception:
                 pass
 
     def test_dsv_source_initialization_custom_values(self) -> None:
@@ -263,7 +197,7 @@ class TestDsvSource(unittest.TestCase):
         finally:
             try:
                 os.remove(temp_path)
-            except:
+            except Exception:
                 pass
 
     def test_dsv_source_equality(self) -> None:
@@ -291,7 +225,7 @@ class TestDsvSource(unittest.TestCase):
             try:
                 os.remove(temp_path1)
                 os.remove(temp_path2)
-            except:
+            except Exception:
                 pass
 
     def test_dsv_source_equality_different_type(self) -> None:
@@ -312,7 +246,7 @@ class TestDsvSource(unittest.TestCase):
         finally:
             try:
                 os.remove(temp_path)
-            except:
+            except Exception:
                 pass
 
     def test_dsv_source_string_representation(self) -> None:
@@ -337,7 +271,7 @@ class TestDsvSource(unittest.TestCase):
         finally:
             try:
                 os.remove(temp_path)
-            except:
+            except Exception:
                 pass
 
 
@@ -356,7 +290,7 @@ class TestDbSource(unittest.TestCase):
     def test_db_source_properties(self) -> None:
         """Test DbSource properties."""
         # This test requires a real database connection, so we'll test the error case
-        with self.assertRaises(RuntimeError):
+        with self.assertRaises(DatabaseError):
             DbSource(
                 db_url="invalid://url",
                 db_schema="test_schema",
@@ -366,7 +300,7 @@ class TestDbSource(unittest.TestCase):
     def test_db_source_string_representation(self) -> None:
         """Test DbSource string representation."""
         # This test requires a real database connection, so we'll test the error case
-        with self.assertRaises(RuntimeError):
+        with self.assertRaises(DatabaseError):
             DbSource(
                 db_url="invalid://url",
                 db_schema="test_schema",

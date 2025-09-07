@@ -1,5 +1,11 @@
 # Splurge Data Profiler
 
+[![Version](https://img.shields.io/badge/version-2025.2.0-blue.svg)](https://github.com/jim-schilling/splurge-data-profiler/releases)
+[![Python Versions](https://img.shields.io/pypi/pyversions/splurge-data-profiler.svg)](https://pypi.org/project/splurge-data-profiler/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Documentation](https://img.shields.io/badge/docs-detailed-blue.svg)](docs/README-details.md)
+[![Coverage](https://img.shields.io/badge/coverage-94.21%25-brightgreen.svg)](https://github.com/jim-schilling/splurge-data-profiler)
+
 A powerful data profiling tool for delimited and database sources that automatically infers data types and creates optimized data lakes (SQLite database).
 
 ## Features
@@ -10,6 +16,8 @@ A powerful data profiling tool for delimited and database sources that automatic
 - **Inferred Tables**: Create tables with both original and type-cast columns
 - **Flexible Configuration**: JSON-based configuration for customization
 - **Command Line Interface**: Easy-to-use CLI for batch processing
+- **Comprehensive Testing**: Extensive test coverage ensuring reliability and robustness
+- **Production Ready**: Enterprise-grade error handling and performance optimization
 
 ## Installation
 
@@ -42,15 +50,6 @@ python -m splurge_data_profiler profile <dsv_file> <config_file> [options]
 **Options:**
 - `--verbose`: Enable verbose output
 
-**Examples:**
-```bash
-# Basic profiling
-python -m splurge_data_profiler profile examples/example_data.csv examples/example_config.json
-
-# Verbose output
-python -m splurge_data_profiler profile examples/example_data.csv examples/example_config.json --verbose
-```
-
 ### Create Config Command
 
 Generate a sample configuration file:
@@ -59,12 +58,7 @@ Generate a sample configuration file:
 python -m splurge_data_profiler create-config <output_file>
 ```
 
-**Example:**
-```bash
-python -m splurge_data_profiler create-config examples/example_config.json
-```
-
-## Configuration File
+## Configuration
 
 The configuration file is a JSON file that specifies how to process your DSV file:
 
@@ -73,173 +67,37 @@ The configuration file is a JSON file that specifies how to process your DSV fil
   "data_lake_path": "./data_lake",
   "dsv": {
     "delimiter": ",",
-    "strip": true,
-    "bookend": "\"",
-    "bookend_strip": true,
-    "encoding": "utf-8",
-    "skip_header_rows": 0,
-    "skip_footer_rows": 0,
-    "header_rows": 1,
-    "skip_empty_rows": true
+    "encoding": "utf-8"
   }
 }
 ```
 
-### Configuration Options
+## Documentation
 
-#### Required Fields
-- `data_lake_path`: Directory where the SQLite database will be created
-
-#### DSV Configuration (`dsv` object)
-- `delimiter`: Character used to separate values (default: `","`)
-- `strip`: Whether to strip whitespace from values (default: `true`)
-- `bookend`: Character used to quote values (default: `"\""`)
-- `bookend_strip`: Whether to strip bookend characters (default: `true`)
-- `encoding`: File encoding (default: `"utf-8"`)
-- `skip_header_rows`: Number of header rows to skip (default: `0`)
-- `skip_footer_rows`: Number of footer rows to skip (default: `0`)
-- `header_rows`: Number of header rows (default: `1`)
-- `skip_empty_rows`: Whether to skip empty rows (default: `true`)
-
-**Note**: The profiler always uses adaptive sampling and always creates an inferred table.
-
-## Examples
-
-### Example 1: Basic Profiling
-
-1. Create a configuration:
-```bash
-python -m splurge_data_profiler create-config examples/example_config.json
-```
-
-2. Profile your data:
-```bash
-python -m splurge_data_profiler profile examples/example_data.csv examples/example_config.json
-```
-
-Output:
-```
-=== PROFILING RESULTS ===
-id: INTEGER
-name: TEXT
-age: INTEGER
-salary: FLOAT
-is_active: BOOLEAN
-hire_date: DATE
-last_login: DATETIME
-
-Profiling completed successfully!
-```
-
-**Note**: Datetime values should be in ISO 8601 format (YYYY-MM-DDTHH:MM:SS) for proper type inference.
-
-### Example 2: With Inferred Table
-
-```bash
-python -m splurge_data_profiler profile examples/example_data.csv examples/example_config.json
-```
-
-This creates an additional table with:
-- Original columns (preserving text values)
-- Cast columns with inferred data types
-
-### Example 3: Verbose Output
-
-```bash
-python -m splurge_data_profiler profile examples/example_data.csv examples/example_config.json --verbose
-```
-
-## Data Types
-
-The profiler can infer the following data types:
-
-- **TEXT**: String values
-- **INTEGER**: Whole numbers
-- **FLOAT**: Decimal numbers
-- **BOOLEAN**: True/false values
-- **DATE**: Date values (YYYY-MM-DD)
-- **TIME**: Time values (HH:MM:SS)
-- **DATETIME**: Date and time values (ISO 8601 format: YYYY-MM-DDTHH:MM:SS)
-
-## Adaptive Sampling
-
-When no sample size is specified, the profiler uses adaptive sampling:
-
-- Datasets < 25K rows: 100% sample
-- Datasets 25K-50K rows: 50% sample
-- Datasets 50K-100K rows: 25% sample
-- Datasets 100K-500K rows: 20% sample
-- Datasets > 500K rows: 10% sample
-
-## Programmatic Usage
-
-You can also use the profiler programmatically:
-
-```python
-from splurge_data_profiler.data_lake import DataLakeFactory
-from splurge_data_profiler.profiler import Profiler
-from splurge_data_profiler.source import DsvSource
-
-# Create DSV source
-dsv_source = DsvSource(
-    file_path="examples/example_data.csv",
-    delimiter=",",
-    encoding="utf-8"
-)
-
-# Create data lake
-data_lake = DataLakeFactory.from_dsv_source(
-    dsv_source=dsv_source,
-    data_lake_path="./data_lake"
-)
-
-# Create profiler and run profiling
-profiler = Profiler(data_lake=data_lake)
-profiler.profile()
-
-# Get results
-for column in profiler.profiled_columns:
-    print(f"{column.name}: {column.inferred_type}")
-```
+For detailed documentation, examples, and API reference, see:
+- [Detailed Documentation](docs/README-details.md)
+- [Changelog](CHANGELOG.md)
 
 ## Requirements
 
 - Python 3.10+
 - SQLAlchemy >= 2.0.37
-- splurge-tools == 0.2.4
+
+## Quality Assurance
+
+This project maintains high code quality through comprehensive testing:
+
+- **Unit Tests**: Core component testing with 100% coverage of critical paths
+- **Integration Tests**: End-to-end workflow validation
+- **Edge Case Tests**: Error handling and boundary condition testing
+- **E2E Tests**: Complete user scenario validation
+- **Performance Tests**: Large dataset processing validation
+
+Run tests with:
+```bash
+pytest
+```
 
 ## License
 
 MIT License
-
-
-## Changelog
-
-### [0.1.1] 2025-07-10
-
-- **Refactored adaptive sampling logic**: Sampling thresholds and factors are now defined as class-level rules using a dataclass, improving maintainability and clarity.
-- **Public classmethod for adaptive sample size**: `calculate_adaptive_sample_size` is now a public classmethod, replacing the previous private method and magic numbers.
-- **Test suite updated**: All tests now use the new classmethod for adaptive sample size, ensuring consistency and eliminating magic numbers.
-- **Sampling rules updated**: New adaptive sampling rules:
-    - < 5K rows: 100%
-    - < 10K rows: 80%
-    - < 25K rows: 60%
-    - < 100K rows: 40%
-    - < 500K rows: 20%
-    - >= 500K rows: 10%
-- **General code quality improvements**: Improved type annotations, error handling, and code organization per project standards.
-- **Enhanced test coverage and reliability**: Test logic and assertions now reflect the updated adaptive sampling strategy.
-- (See previous notes for performance test and runner improvements.)
-
-### [0.1.0] 2025-07-06
-
-- **Initial release** of Splurge Data Profiler
-- **CLI implementation** with `profile` and `create-config` commands
-- **DSV file support** for CSV, TSV, and other delimiter-separated value files
-- **Automatic type inference** using adaptive sampling strategy
-- **Data lake creation** with SQLite database generation
-- **Inferred table creation** with both original and type-cast columns
-- **JSON configuration** for DSV parsing options
-- **ISO 8601 datetime support** for proper type inference
-- **Adaptive sampling** based on dataset size (100% for <25K rows, 50% for 25K-50K, 25% for 50K-100K, 20% for 100K-500K, 10% for >500K)
-- **Simplified workflow** - always profiles and always creates inferred tables

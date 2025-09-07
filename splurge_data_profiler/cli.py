@@ -10,11 +10,12 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 from splurge_data_profiler.data_lake import DataLakeFactory
 from splurge_data_profiler.profiler import Profiler
-from splurge_data_profiler.source import DsvSource, DataType
+from splurge_data_profiler.source import DsvSource
+from splurge_data_profiler.exceptions import ConfigurationError, DataSourceError, ProfilingError
 
 
 def load_config(config_path: Path) -> Dict[str, Any]:
@@ -33,19 +34,19 @@ def load_config(config_path: Path) -> Dict[str, Any]:
         ValueError: If required configuration is missing
     """
     if not config_path.exists():
-        raise FileNotFoundError(f"Configuration file not found: {config_path}")
+        raise ConfigurationError(f"Configuration file not found: {config_path}")
     
     try:
         with open(config_path, 'r', encoding='utf-8') as f:
             config = json.load(f)
     except json.JSONDecodeError as exc:
-        raise json.JSONDecodeError(f"Invalid JSON in config file: {exc}", exc.doc, exc.pos) from exc
+        raise ConfigurationError(f"Invalid JSON in config file: {exc}", details=str(exc)) from exc
     
     # Validate required configuration (only data_lake_path is required now)
     required_keys = ['data_lake_path']
     missing_keys = [key for key in required_keys if key not in config]
     if missing_keys:
-        raise ValueError(f"Missing required configuration keys: {missing_keys}")
+        raise ConfigurationError(f"Missing required configuration keys: {missing_keys}")
     
     return config
 
@@ -127,7 +128,7 @@ def run_profiling(
         )
         
         if verbose:
-            print(f"Data lake created successfully")
+            print("Data lake created successfully")
             print(f"Database: {data_lake.db_url}")
             print(f"Table: {data_lake.db_table}")
         
@@ -153,7 +154,7 @@ def run_profiling(
         
         print("\nProfiling completed successfully!")
         
-    except (FileNotFoundError, json.JSONDecodeError, ValueError, RuntimeError) as exc:
+    except (ConfigurationError, DataSourceError, ProfilingError) as exc:
         print(f"Error during profiling: {exc}", file=sys.stderr)
         sys.exit(1)
     except Exception as exc:

@@ -7,16 +7,33 @@ This directory contains performance tests for the splurge-data-profiler package.
 ### `test_basic_performance.py`
 Basic performance tests that don't require external dependencies. Tests:
 - Performance with different dataset sizes (1K, 5K, 10K, 25K rows)
-- Adaptive sampling efficiency
+- Adaptive sampling efficiency (see below for current rules)
 - Operation breakdown timing
 - Repeated operation consistency
 
 ### `test_performance_benchmarks.py`
 Comprehensive performance benchmarks with advanced features. Tests:
 - Performance with larger datasets (10K, 25K, 50K, 100K, 250K, 500K rows)
-- Adaptive sampling scaling analysis
+- Adaptive sampling scaling analysis (see below for current rules)
 - Memory efficiency (indirect testing)
 - Concurrent processing capabilities
+
+## Adaptive Sampling (Current Implementation)
+
+The profiler uses adaptive sampling to determine how many rows to sample for profiling, based on the total number of rows in the dataset. The rules are:
+
+| Total Rows         | Sample Fraction |
+|--------------------|----------------|
+| < 5,000            | 100%           |
+| < 10,000           | 80%            |
+| < 25,000           | 60%            |
+| < 100,000          | 40%            |
+| < 500,000          | 20%            |
+| >= 500,000         | 10%            |
+
+- The sample size is calculated as `int(total_rows * fraction)` for the first rule that matches.
+- If a specific sample size is provided, it overrides adaptive sampling.
+- Sampling is performed using random row selection (ORDER BY RANDOM() for SQLite, ORDER BY RAND() for others).
 
 ## Running Performance Tests
 
@@ -35,24 +52,6 @@ python -m pytest tests/performance/test_performance_benchmarks.py
 ```bash
 python -m pytest tests/performance/ -v
 ```
-
-## Performance Thresholds
-
-The tests use conservative performance thresholds based on typical system capabilities:
-
-### Basic Performance Tests
-- 1K rows: < 3 seconds
-- 5K rows: < 8 seconds  
-- 10K rows: < 15 seconds
-- 25K rows: < 35 seconds
-
-### Comprehensive Benchmarks
-- 10K rows: < 10 seconds
-- 25K rows: < 20 seconds
-- 50K rows: < 40 seconds
-- 100K rows: < 80 seconds
-- 250K rows: < 200 seconds
-- 500K rows: < 400 seconds
 
 ## Test Data
 
@@ -78,4 +77,3 @@ Tests generate realistic test data including:
 - Performance thresholds may need adjustment based on system capabilities
 - The comprehensive benchmarks include larger datasets and may take longer to run
 - Memory efficiency is tested indirectly through performance timing
-- Concurrent processing tests verify thread safety 

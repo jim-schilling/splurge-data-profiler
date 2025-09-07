@@ -1,13 +1,16 @@
 from abc import ABC
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional, Union
+from typing import Any, Iterator, List, Optional, Union
 
 from sqlalchemy import create_engine, inspect, MetaData, Table
 from sqlalchemy.exc import SQLAlchemyError
-from splurge_tools.dsv_helper import DsvHelper
-from splurge_tools.tabular_data_model import TabularDataModel
-from splurge_tools.text_file_helper import TextFileHelper
+from splurge_dsv.dsv_helper import DsvHelper
+from splurge_dsv.text_file_helper import TextFileHelper
+from splurge_tabular.tabular_data_model import TabularDataModel
+from splurge_tabular.exceptions import SplurgeValidationError
+from splurge_dsv.exceptions import SplurgeFileNotFoundError
+from splurge_data_profiler.exceptions import DataSourceError, FileProcessingError, DatabaseError
 
 
 class DataType(Enum):
@@ -246,7 +249,8 @@ class DsvSource(Source):
                 raw_header_model,
                 delimiter=self._delimiter,
                 bookend=self._bookend,
-                bookend_strip=self._bookend_strip
+                bookend_strip=self._bookend_strip,
+                strip=self._strip
             )
             
             data_model = TabularDataModel(
@@ -254,12 +258,19 @@ class DsvSource(Source):
                 header_rows=self._header_rows,
                 skip_empty_rows=self._skip_empty_rows
             )
-            columns = [Column(name=col_name) for col_name in data_model.column_names]
+            # Handle column name stripping based on the strip parameter
+            if self._strip:
+                columns = [Column(name=col_name.strip()) for col_name in data_model.column_names]
+            else:
+                columns = [Column(name=col_name) for col_name in data_model.column_names]
             return columns
-        except (ValueError, TypeError, AttributeError, OSError, UnicodeDecodeError) as exc:
-            raise RuntimeError(f"Failed to initialize columns from file: {exc}")
+        except SplurgeValidationError:
+            # Handle empty files or files with no valid data after skipping
+            return []
+        except (ValueError, TypeError, AttributeError, OSError, UnicodeDecodeError, SplurgeFileNotFoundError) as exc:
+            raise FileProcessingError(f"Failed to initialize columns from file: {exc}")
         except Exception as exc:
-            raise RuntimeError(f"Unexpected error initializing columns from file: {exc}")
+            raise FileProcessingError(f"Unexpected error initializing columns from file: {exc}")
     
     
     def __str__(self) -> str:
@@ -352,13 +363,11 @@ class DbSource(Source):
             ValueError: If any column is not a text-like datatype
             RuntimeError: If database connection or schema reflection fails
         """
-        from sqlalchemy import create_engine, inspect, MetaData, Table
-        from sqlalchemy.exc import SQLAlchemyError
 
         try:
             engine = create_engine(self._db_url)
             metadata = MetaData()
-            table = Table(
+            Table(
                 self._db_table,
                 metadata,
                 autoload_with=engine,
@@ -379,7 +388,7 @@ class DbSource(Source):
                 is_text_like = any(text_type in type_string for text_type in text_types)
 
                 if not is_text_like:
-                    raise ValueError(f"Column '{column_name}' is not a text-like datatype. Found: {column_type}")
+                    raise DataSourceError(f"Column '{column_name}' is not a text-like datatype. Found: {column_type}")
 
                 # Create column with raw_type set to TEXT
                 column = Column(
@@ -392,7 +401,7 @@ class DbSource(Source):
             return columns
         
         except SQLAlchemyError as exc:
-            raise RuntimeError(f"Failed to initialize columns from database: {exc}")
+            raise DatabaseError(f"Failed to initialize columns from database: {exc}")
 
     def __str__(self) -> str:
         return f"DbSource(db_url={self._db_url}, schema={self._db_schema}, table={self._db_table}, columns={len(self._columns)})"

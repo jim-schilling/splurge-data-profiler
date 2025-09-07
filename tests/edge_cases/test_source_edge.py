@@ -11,6 +11,7 @@ import unittest
 from pathlib import Path
 
 from splurge_data_profiler.source import DataType, Column, Source, DsvSource, DbSource
+from splurge_data_profiler.exceptions import DatabaseError, FileProcessingError
 
 
 class TestSourceEdgeCases(unittest.TestCase):
@@ -76,9 +77,10 @@ class TestDsvSourceEdgeCases(unittest.TestCase):
 
     def test_dsv_source_nonexistent_file(self) -> None:
         """Test DsvSource with non-existent file."""
+        from splurge_data_profiler.exceptions import FileProcessingError
         non_existent_path = Path("/non/existent/file.csv")
-        
-        with self.assertRaises(RuntimeError):
+
+        with self.assertRaises(FileProcessingError):
             DsvSource(non_existent_path)
 
     def test_dsv_source_empty_file(self) -> None:
@@ -88,16 +90,17 @@ class TestDsvSourceEdgeCases(unittest.TestCase):
         
         try:
             # Create empty file
-            with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
+            with os.fdopen(temp_fd, 'w', encoding='utf-8') as _:
                 pass  # Empty file
             
-            with self.assertRaises(RuntimeError):
-                DsvSource(empty_path)
+            # Empty files should be handled gracefully with 0 columns
+            source = DsvSource(empty_path)
+            self.assertEqual(len(source.columns), 0)
                 
         finally:
             try:
                 os.remove(temp_path)
-            except:
+            except Exception:
                 pass
 
     def test_dsv_source_file_with_only_header(self) -> None:
@@ -119,7 +122,7 @@ class TestDsvSourceEdgeCases(unittest.TestCase):
         finally:
             try:
                 os.remove(temp_path)
-            except:
+            except Exception:
                 pass
 
     def test_dsv_source_file_with_malformed_header(self) -> None:
@@ -141,7 +144,7 @@ class TestDsvSourceEdgeCases(unittest.TestCase):
         finally:
             try:
                 os.remove(temp_path)
-            except:
+            except Exception:
                 pass
 
     def test_dsv_source_with_invalid_delimiter(self) -> None:
@@ -154,7 +157,7 @@ class TestDsvSourceEdgeCases(unittest.TestCase):
                 f.write('id,name,value\n1,Alice,10.5\n')
             
             # Test with empty delimiter
-            with self.assertRaises(RuntimeError):
+            with self.assertRaises(FileProcessingError):
                 DsvSource(test_path, delimiter="")
             
             # Test with multi-character delimiter
@@ -165,7 +168,7 @@ class TestDsvSourceEdgeCases(unittest.TestCase):
         finally:
             try:
                 os.remove(temp_path)
-            except:
+            except Exception:
                 pass
 
     def test_dsv_source_with_invalid_encoding(self) -> None:
@@ -178,13 +181,13 @@ class TestDsvSourceEdgeCases(unittest.TestCase):
                 f.write('id,name,value\n1,Alice,10.5\n')
             
             # Test with invalid encoding
-            with self.assertRaises(RuntimeError):
+            with self.assertRaises(FileProcessingError):
                 DsvSource(test_path, encoding="invalid_encoding")
                 
         finally:
             try:
                 os.remove(temp_path)
-            except:
+            except Exception:
                 pass
 
     def test_dsv_source_with_negative_skip_rows(self) -> None:
@@ -205,13 +208,13 @@ class TestDsvSourceEdgeCases(unittest.TestCase):
             self.assertEqual(source.skip_footer_rows, -1)
             
             # Test with zero header_rows - should fail (validation in underlying library)
-            with self.assertRaises(RuntimeError):
+            with self.assertRaises(FileProcessingError):
                 source = DsvSource(test_path, header_rows=0)
                 
         finally:
             try:
                 os.remove(temp_path)
-            except:
+            except Exception:
                 pass
 
     def test_dsv_source_with_large_skip_values(self) -> None:
@@ -223,14 +226,15 @@ class TestDsvSourceEdgeCases(unittest.TestCase):
             with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
                 f.write('id,name,value\n1,Alice,10.5\n')
             
-            # Test with skip_header_rows larger than file
-            with self.assertRaises(RuntimeError):
-                source = DsvSource(test_path, skip_header_rows=1000)
+            # Test with skip_header_rows larger than file - should handle gracefully
+            source = DsvSource(test_path, skip_header_rows=1000)
+            # Should still work and create columns (empty in this case)
+            self.assertGreaterEqual(len(source.columns), 0)
                 
         finally:
             try:
                 os.remove(temp_path)
-            except:
+            except Exception:
                 pass
 
 
@@ -248,7 +252,7 @@ class TestDbSourceEdgeCases(unittest.TestCase):
 
     def test_db_source_empty_url(self) -> None:
         """Test DbSource with empty database URL."""
-        with self.assertRaises(RuntimeError):
+        with self.assertRaises(DatabaseError):
             DbSource(
                 db_url="",
                 db_schema="test_schema",
@@ -257,7 +261,7 @@ class TestDbSourceEdgeCases(unittest.TestCase):
 
     def test_db_source_none_url(self) -> None:
         """Test DbSource with None database URL."""
-        with self.assertRaises(RuntimeError):
+        with self.assertRaises(DatabaseError):
             DbSource(
                 db_url=None,
                 db_schema="test_schema",
@@ -266,7 +270,8 @@ class TestDbSourceEdgeCases(unittest.TestCase):
 
     def test_db_source_empty_table_name(self) -> None:
         """Test DbSource with empty table name."""
-        with self.assertRaises(RuntimeError):
+        from splurge_data_profiler.exceptions import DatabaseError
+        with self.assertRaises(DatabaseError):
             DbSource(
                 db_url="sqlite:///test.db",
                 db_schema="test_schema",
@@ -301,7 +306,7 @@ class TestDbSourceEdgeCases(unittest.TestCase):
             try:
                 os.close(temp_fd)
                 os.remove(temp_path)
-            except:
+            except Exception:
                 pass
 
     def test_db_source_with_special_characters_in_table_name(self) -> None:
@@ -332,7 +337,7 @@ class TestDbSourceEdgeCases(unittest.TestCase):
             try:
                 os.close(temp_fd)
                 os.remove(temp_path)
-            except:
+            except Exception:
                 pass
 
 

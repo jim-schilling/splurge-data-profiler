@@ -3,11 +3,13 @@ from typing import Union, List, Any
 from os import PathLike
 
 from sqlalchemy import create_engine, MetaData, Table, Column as SAColumn, String, insert
+from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
-from splurge_tools.dsv_helper import DsvHelper
-from splurge_tools.streaming_tabular_data_model import StreamingTabularDataModel
+from splurge_dsv.dsv_helper import DsvHelper
+from splurge_tabular.streaming_tabular_data_model import StreamingTabularDataModel
 
 from splurge_data_profiler.source import DsvSource, DbSource
+from splurge_data_profiler.exceptions import DatabaseError, FileProcessingError
 
 
 class DataLake:
@@ -160,15 +162,15 @@ class DataLakeFactory:
             engine.dispose()
             
         except SQLAlchemyError as exc:
-            raise RuntimeError(f"Database insertion failed: {exc}")
+            raise DatabaseError(f"Database insertion failed: {exc}")
         except (ValueError, TypeError, AttributeError, OSError) as exc:
-            raise RuntimeError(f"Streaming DSV to SQLite failed: {exc}")
+            raise FileProcessingError(f"Streaming DSV to SQLite failed: {exc}")
         except Exception as exc:
-            raise RuntimeError(f"Unexpected error streaming DSV to SQLite: {exc}")
+            raise FileProcessingError(f"Unexpected error streaming DSV to SQLite: {exc}")
 
     @staticmethod
     def _insert_batch(
-            engine,
+            engine: Engine,
             *,
             table_name: str,
             batch_data: List[dict],
@@ -198,10 +200,10 @@ class DataLakeFactory:
 
     @classmethod
     def from_dsv_source(
-        cls,
-        dsv_source: DsvSource,
-        *,
-        data_lake_path: Union[str, PathLike]  
+            cls,
+            dsv_source: DsvSource,
+            *,
+            data_lake_path: Union[str, PathLike]
     ) -> DataLake:
         """
         Create a DataLake from a DSV source by generating a SQLite table.
@@ -247,7 +249,7 @@ class DataLakeFactory:
             
             # Create the table
             table_name = dsv_file_path.stem
-            table = Table(table_name, metadata, *table_columns)
+            Table(table_name, metadata, *table_columns)
             
             # Create the table in the database
             metadata.create_all(engine)
@@ -270,9 +272,9 @@ class DataLakeFactory:
             return DataLake(db_source=db_source)
             
         except SQLAlchemyError as exc:
-            raise RuntimeError(f"Failed to create SQLite table from DSV source: {exc}")
+            raise DatabaseError(f"Failed to create SQLite table from DSV source: {exc}")
         except (ValueError, TypeError, AttributeError, OSError) as exc:
-            raise RuntimeError(f"Error creating SQLite table: {exc}")
+            raise FileProcessingError(f"Error creating SQLite table: {exc}")
         except Exception as exc:
-            raise RuntimeError(f"Unexpected error creating SQLite table: {exc}")    
+            raise FileProcessingError(f"Unexpected error creating SQLite table: {exc}")    
     

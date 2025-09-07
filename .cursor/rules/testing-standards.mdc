@@ -1,0 +1,20 @@
+---
+description: testing standards
+alwaysApply: false
+---
+- Validate behavior of public APIs only.
+- Prefer validation using actual data, interfaces, and objects
+- Avoid use of mocks, except where appropriate.
+- Target 85% code coverage for all public interfaces and methods.
+- Prefer shared helpers for common logic.
+- Avoid validation of implementation details and private APIs.
+- Prefer validation of patterns of text, and avoid exact matching of content and formatting.
+- For Python, prefer pytest, pytest-cov, and pytest-xdist for testing with default parameters of -x -v -n auto.
+- Place unit tests in tests/unit/ and integration tests in tests/integration/, e2e tests in tests/e2e/, and performance tests in tests/performance/.
+- Name test files as test_[module]-[context].py and test classes as Test[Module][Context], where context is the specific feature or behavior being tested.
+- Name test methods as test_[condition]_[expectedResult].
+- Each test method should ideally test a single condition and expected result.
+- Use fixtures for common setup and teardown logic.
+- Use parameterized tests for testing multiple input scenarios.
+- Use assertions to validate expected outcomes.
+- Place test classes in own module if they exceed 200 lines.

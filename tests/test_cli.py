@@ -6,7 +6,7 @@ import json
 import os
 import unittest
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 from splurge_data_profiler.cli import (
     load_config, 
@@ -15,6 +15,7 @@ from splurge_data_profiler.cli import (
     create_sample_config
 )
 from splurge_data_profiler.source import DsvSource
+from splurge_data_profiler.exceptions import ConfigurationError
 
 
 def run_cli(args):
@@ -69,7 +70,7 @@ class TestCliFunctions(unittest.TestCase):
 
     def test_load_config_file_not_found(self):
         """Test loading a non-existent configuration file."""
-        with pytest.raises(FileNotFoundError):
+        with pytest.raises(ConfigurationError):
             load_config(Path("nonexistent.json"))
 
     def test_load_config_invalid_json(self):
@@ -79,7 +80,7 @@ class TestCliFunctions(unittest.TestCase):
             config_path = Path(f.name)
         
         try:
-            with pytest.raises(json.JSONDecodeError):
+            with pytest.raises(ConfigurationError):
                 load_config(config_path)
         finally:
             os.unlink(config_path)
@@ -92,7 +93,7 @@ class TestCliFunctions(unittest.TestCase):
             config_path = Path(f.name)
         
         try:
-            with pytest.raises(ValueError, match="Missing required configuration keys"):
+            with pytest.raises(ConfigurationError, match="Missing required configuration keys"):
                 load_config(config_path)
         finally:
             os.unlink(config_path)
@@ -269,7 +270,7 @@ class TestCliFunctions(unittest.TestCase):
     @patch('splurge_data_profiler.cli.load_config')
     def test_run_profiling_config_error(self, mock_load_config):
         """Test profiling with configuration error."""
-        mock_load_config.side_effect = FileNotFoundError("Config not found")
+        mock_load_config.side_effect = ConfigurationError("Config not found")
         
         with patch('sys.exit') as mock_exit, patch('builtins.print') as mock_print:
             run_profiling(
@@ -392,4 +393,222 @@ class TestCliCommands:
             os.unlink(dsv_path)
             os.unlink(config_path)
             import shutil
-            shutil.rmtree(temp_dir) 
+            shutil.rmtree(temp_dir)
+
+
+def test_cli_argument_validation():
+    """Test CLI argument validation for various scenarios."""
+    # Test profile command with non-existent DSV file
+    result = run_cli(["profile", "nonexistent.csv", "config.json"])
+    assert result.returncode != 0
+    assert "DSV file not found" in result.stderr or "No such file" in result.stderr.lower()
+
+    # Test profile command with non-existent config file (create dummy DSV file first)
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
+        f.write("id,name\n1,test\n")
+        dummy_csv = f.name
+
+    try:
+        result = run_cli(["profile", dummy_csv, "nonexistent.json"])
+        assert result.returncode != 0
+        assert "Configuration file not found" in result.stderr or "No such file" in result.stderr.lower()
+    finally:
+        os.unlink(dummy_csv)
+
+
+def test_cli_create_config_output_validation():
+    """Test create-config command output validation."""
+    import tempfile
+    import os
+
+    with tempfile.NamedTemporaryFile(suffix='.json', delete=False) as tmp:
+        tmp_path = tmp.name
+
+    try:
+        result = run_cli(["create-config", tmp_path])
+        assert result.returncode == 0
+        assert "Sample configuration created" in result.stdout
+
+        # Verify the created config file
+        with open(tmp_path, 'r') as f:
+            config = json.load(f)
+
+        assert "data_lake_path" in config
+        assert "dsv" in config
+        assert config["dsv"]["delimiter"] == ","
+        assert config["dsv"]["encoding"] == "utf-8"
+    finally:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+
+
+def test_cli_error_handling_comprehensive():
+    """Test comprehensive error handling in CLI."""
+    # Test with invalid JSON in config (create dummy DSV file first)
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
+        f.write("id,name\n1,test\n")
+        dummy_csv = f.name
+
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        f.write('{"invalid": json syntax}')
+        invalid_config_path = f.name
+
+    try:
+        result = run_cli(["profile", dummy_csv, invalid_config_path])
+        assert result.returncode != 0
+        assert "Invalid JSON" in result.stderr or "JSONDecodeError" in result.stderr
+    finally:
+        os.unlink(dummy_csv)
+        os.unlink(invalid_config_path)
+
+
+def test_cli_config_validation_edge_cases():
+    """Test configuration validation edge cases."""
+    # Test config with missing required fields (create dummy DSV file first)
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
+        f.write("id,name\n1,test\n")
+        dummy_csv = f.name
+
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        config = {"dsv": {"delimiter": ","}}  # Missing data_lake_path
+        json.dump(config, f)
+        config_path = f.name
+
+    try:
+        result = run_cli(["profile", dummy_csv, config_path])
+        assert result.returncode != 0
+        assert "Missing required configuration" in result.stderr or "data_lake_path" in result.stderr
+    finally:
+        os.unlink(dummy_csv)
+        os.unlink(config_path)
+
+
+def test_cli_unicode_and_encoding_handling():
+    """Test CLI handling of Unicode characters and different encodings."""
+    import tempfile
+    import os
+
+    # Create a test file with Unicode content
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', encoding='utf-8', delete=False) as f:
+        f.write("name,age,city\n")
+        f.write("José,25,São Paulo\n")
+        f.write("François,30,Montréal\n")
+        dsv_path = f.name
+
+    # Create config
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        config = {
+            "data_lake_path": "./test_lake",
+            "dsv": {
+                "delimiter": ",",
+                "encoding": "utf-8"
+            }
+        }
+        json.dump(config, f)
+        config_path = f.name
+
+    try:
+        result = run_cli(["profile", dsv_path, config_path])
+        assert result.returncode == 0
+        assert "Profiling completed successfully" in result.stdout
+    finally:
+        os.unlink(dsv_path)
+        os.unlink(config_path)
+
+
+def test_cli_large_file_handling():
+    """Test CLI handling of larger files."""
+    import tempfile
+    import os
+
+    # Create a moderately large test file
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
+        f.write("id,name,value\n")
+        for i in range(1000):  # Create 1000 rows
+            f.write(f"{i},test_name_{i},{i * 1.5}\n")
+        dsv_path = f.name
+
+    # Create config
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        config = {
+            "data_lake_path": "./test_lake",
+            "dsv": {"delimiter": ","}
+        }
+        json.dump(config, f)
+        config_path = f.name
+
+    try:
+        result = run_cli(["profile", dsv_path, config_path])
+        assert result.returncode == 0
+        assert "Profiling completed successfully" in result.stdout
+    finally:
+        os.unlink(dsv_path)
+        os.unlink(config_path)
+
+
+def test_cli_different_delimiters():
+    """Test CLI with different delimiter configurations."""
+    import tempfile
+    import os
+
+    # Create test file with pipe delimiter
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
+        f.write("id|name|value\n")
+        f.write("1|test|100\n")
+        f.write("2|another|200\n")
+        dsv_path = f.name
+
+    # Create config with pipe delimiter
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        config = {
+            "data_lake_path": "./test_lake",
+            "dsv": {"delimiter": "|"}
+        }
+        json.dump(config, f)
+        config_path = f.name
+
+    try:
+        result = run_cli(["profile", dsv_path, config_path])
+        assert result.returncode == 0
+        assert "Profiling completed successfully" in result.stdout
+    finally:
+        os.unlink(dsv_path)
+        os.unlink(config_path)
+
+
+def test_cli_verbose_output_comprehensive():
+    """Test comprehensive verbose output functionality."""
+    import tempfile
+    import os
+
+    # Create test files
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
+        f.write("id,name,value\n1,test,100\n")
+        dsv_path = f.name
+
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        config = {
+            "data_lake_path": "./test_lake",
+            "dsv": {"delimiter": ","}
+        }
+        json.dump(config, f)
+        config_path = f.name
+
+    try:
+        result = run_cli(["profile", dsv_path, config_path, "--verbose"])
+        assert result.returncode == 0
+
+        # Check for verbose output indicators
+        verbose_indicators = [
+            "Loading configuration",
+            "Creating DSV source",
+            "Creating data lake",
+            "Starting data profiling",
+            "Profiling completed successfully"
+        ]
+
+        for indicator in verbose_indicators:
+            assert indicator in result.stdout, f"Missing verbose output: {indicator}"
+    finally:
+        os.unlink(dsv_path)
+        os.unlink(config_path) 

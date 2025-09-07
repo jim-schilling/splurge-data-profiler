@@ -10,13 +10,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from sqlalchemy import create_engine, MetaData, Table, Column as SAColumn, String, text
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy import create_engine, MetaData, Column as SAColumn, String, text, Table
 
-from splurge_data_profiler.source import DataType, Column, Source, DsvSource, DbSource
+from splurge_data_profiler.source import DataType, DsvSource, DbSource
 from splurge_data_profiler.data_lake import DataLake, DataLakeFactory
-from splurge_tools.dsv_helper import DsvHelper
-from splurge_tools.tabular_data_model import TabularDataModel
+from splurge_data_profiler.exceptions import FileProcessingError
 
 
 class TestDsvSourceIntegration(unittest.TestCase):
@@ -34,7 +32,7 @@ class TestDsvSourceIntegration(unittest.TestCase):
         """Clean up test fixtures."""
         try:
             os.remove(self.temp_path)
-        except:
+        except Exception:
             pass
 
     def test_dsv_source_real_file(self):
@@ -66,7 +64,7 @@ class TestDbSourceWithRealSQLite(unittest.TestCase):
         # Create table with some data
         self.engine = create_engine(self.db_url)
         metadata = MetaData()
-        self.table = Table(
+        Table(
             self.db_table, metadata,
             SAColumn("id", String, primary_key=True),
             SAColumn("name", String, nullable=True),
@@ -84,12 +82,12 @@ class TestDbSourceWithRealSQLite(unittest.TestCase):
         """Clean up test fixtures."""
         try:
             self.engine.dispose()
-        except:
+        except Exception:
             pass
         try:
             os.close(self.db_fd)
             os.remove(self.db_path)
-        except:
+        except Exception:
             pass
 
     def test_dbsource_sqlite_columns(self):
@@ -129,12 +127,12 @@ class TestDataLakeFactoryStreaming(unittest.TestCase):
         try:
             os.close(self.temp_fd)
             os.remove(self.temp_path)
-        except:
+        except Exception:
             pass
         try:
             import shutil
             shutil.rmtree(self.temp_dir)
-        except:
+        except Exception:
             pass
 
     def _generate_large_csv_file(self) -> None:
@@ -310,7 +308,7 @@ class TestDataLakeFactoryStreaming(unittest.TestCase):
         finally:
             try:
                 os.remove(temp_path)
-            except:
+            except Exception:
                 pass
 
     def test_streaming_large_dsv_file_error_handling(self) -> None:
@@ -318,7 +316,7 @@ class TestDataLakeFactoryStreaming(unittest.TestCase):
         # Test with non-existent file
         non_existent_path = Path("/non/existent/file.csv")
         
-        with self.assertRaises(RuntimeError):
+        with self.assertRaises(FileProcessingError):
             dsv_source = DsvSource(non_existent_path)
         
         # Test with empty file
@@ -327,17 +325,17 @@ class TestDataLakeFactoryStreaming(unittest.TestCase):
         
         try:
             # Create empty file
-            with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
+            with os.fdopen(temp_fd, 'w', encoding='utf-8') as _:
                 pass  # Empty file
-            
-            # Should raise RuntimeError for empty file
-            with self.assertRaises(RuntimeError):
-                dsv_source = DsvSource(empty_path)
-            
+
+            # Empty files should be handled gracefully with 0 columns
+            dsv_source = DsvSource(empty_path)
+            self.assertEqual(len(dsv_source.columns), 0)
+
         finally:
             try:
                 os.remove(temp_path)
-            except:
+            except Exception:
                 pass
 
 

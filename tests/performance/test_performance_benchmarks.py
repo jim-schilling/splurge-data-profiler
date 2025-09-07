@@ -6,14 +6,13 @@ of data profiling operations across different dataset sizes and scenarios.
 """
 
 import csv
-import os
 import random
 import tempfile
 import time
 import unittest
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, Tuple
 
 from sqlalchemy import create_engine, text
 

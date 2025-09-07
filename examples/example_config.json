@@ -1,7 +1,7 @@
 {
-  "data_lake_path": "./data_lake",
+  "data_lake_path": "./data_lake_dsv",
   "dsv": {
-    "delimiter": ",",
+    "delimiter": "|",
     "strip": true,
     "bookend": "\"",
     "bookend_strip": true,
@@ -11,4 +11,4 @@
     "header_rows": 1,
     "skip_empty_rows": true
   }
-} 
+}
