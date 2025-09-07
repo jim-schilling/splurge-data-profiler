@@ -7,7 +7,7 @@ using real file systems and databases.
 
 import os
 import tempfile
-import unittest
+import pytest
 from pathlib import Path
 
 from sqlalchemy import create_engine, MetaData, Column as SAColumn, String, text, Table
@@ -17,327 +17,339 @@ from splurge_data_profiler.data_lake import DataLake, DataLakeFactory
 from splurge_data_profiler.exceptions import FileProcessingError
 
 
-class TestDsvSourceIntegration(unittest.TestCase):
-    """Integration tests for DsvSource with real files."""
+@pytest.fixture
+def temp_csv_file():
+    """Fixture to create a temporary CSV file."""
+    temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
+    with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
+        f.write('id,name,value\n1,Alice,10.5\n2,Bob,20.0\n3,Charlie,15.75\n')
+    test_file_path = Path(temp_path)
+    
+    yield test_file_path
+    
+    # Cleanup
+    try:
+        os.remove(temp_path)
+    except Exception:
+        pass
 
-    def setUp(self) -> None:
-        """Set up test fixtures."""
-        # Create a temporary CSV file
-        self.temp_fd, self.temp_path = tempfile.mkstemp(suffix=".csv")
-        with os.fdopen(self.temp_fd, 'w', encoding='utf-8') as f:
-            f.write('id,name,value\n1,Alice,10.5\n2,Bob,20.0\n3,Charlie,15.75\n')
-        self.test_file_path = Path(self.temp_path)
 
-    def tearDown(self) -> None:
-        """Clean up test fixtures."""
-        try:
-            os.remove(self.temp_path)
-        except Exception:
-            pass
+def test_dsv_source_real_file(temp_csv_file):
+    """Test DsvSource with a real CSV file."""
+    # This will use the real DsvHelper and TabularDataModel
+    source = DsvSource(temp_csv_file)
+    
+    # Verify the source was created correctly
+    assert source.file_path == temp_csv_file
+    assert len(source.columns) == 3
+    assert [col.name for col in source.columns] == ["id", "name", "value"]
+    
+    # Verify all columns are TEXT type initially
+    for col in source.columns:
+        assert col.inferred_type == DataType.TEXT
 
-    def test_dsv_source_real_file(self):
-        """Test DsvSource with a real CSV file."""
-        # This will use the real DsvHelper and TabularDataModel
-        source = DsvSource(self.test_file_path)
+
+@pytest.fixture
+def sqlite_db():
+    """Fixture to create a temporary SQLite database."""
+    db_fd, db_path = tempfile.mkstemp(suffix=".db")
+    db_url = f"sqlite:///{db_path}"
+    db_schema = None  # SQLite does not use schemas
+    db_table = "test_table"
+    
+    # Create table with some data
+    engine = create_engine(db_url)
+    metadata = MetaData()
+    Table(
+        db_table, metadata,
+        SAColumn("id", String, primary_key=True),
+        SAColumn("name", String, nullable=True),
+        SAColumn("value", String, nullable=True),
+    )
+    metadata.create_all(engine)
+    
+    # Insert some test data
+    with engine.connect() as conn:
+        conn.execute(text(f"INSERT INTO {db_table} VALUES ('1', 'Alice', '10.5')"))
+        conn.execute(text(f"INSERT INTO {db_table} VALUES ('2', 'Bob', '20.0')"))
+        conn.commit()
+    
+    yield db_url, db_schema, db_table
+    
+    # Cleanup
+    try:
+        engine.dispose()
+    except Exception:
+        pass
+    try:
+        os.close(db_fd)
+        os.remove(db_path)
+    except Exception:
+        pass
+
+
+def test_dbsource_sqlite_columns(sqlite_db):
+    """Test DbSource with real SQLite database."""
+    db_url, db_schema, db_table = sqlite_db
+    
+    source = DbSource(
+        db_url=db_url,
+        db_schema=db_schema,
+        db_table=db_table
+    )
+    
+    # Verify the source was created correctly
+    assert source.db_url == db_url
+    assert source.db_schema == db_schema
+    assert source.db_table == db_table
+    assert len(source.columns) == 3
+    assert [col.name for col in source.columns] == ["id", "name", "value"]
+
+
+def generate_large_csv_file(temp_fd, temp_path):
+    """Generate a large CSV file for testing."""
+    import csv
+    import random
+    import string
+    
+    # Generate 10,000 rows of data
+    num_rows = 10000
+    num_columns = 5
+    
+    # Generate column names
+    column_names = [f"col_{i}" for i in range(num_columns)]
+    
+    with os.fdopen(temp_fd, 'w', encoding='utf-8', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(column_names)
         
-        # Verify the source was created correctly
-        self.assertEqual(source.file_path, self.test_file_path)
-        self.assertEqual(len(source.columns), 3)
-        self.assertEqual([col.name for col in source.columns], ["id", "name", "value"])
+        for i in range(num_rows):
+            row = []
+            for j in range(num_columns):
+                if j == 0:
+                    row.append(str(i))  # ID column
+                elif j == 1:
+                    row.append(f"name_{i}")  # Name column
+                elif j == 2:
+                    row.append(str(random.randint(1, 1000)))  # Integer column
+                elif j == 3:
+                    row.append(f"{random.uniform(0, 100):.2f}")  # Float column
+                else:
+                    row.append(''.join(random.choices(string.ascii_letters, k=10)))  # Text column
+            writer.writerow(row)
+
+
+@pytest.fixture
+def large_csv_and_data_lake():
+    """Fixture to create a large CSV file and data lake directory."""
+    # Create a temporary directory for the data lake
+    temp_dir = tempfile.mkdtemp()
+    data_lake_path = Path(temp_dir)
+    
+    # Create a temporary CSV file
+    temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
+    csv_path = Path(temp_path)
+    
+    # Generate a large CSV file for testing
+    generate_large_csv_file(temp_fd, temp_path)
+    
+    yield csv_path, data_lake_path
+    
+    # Cleanup
+    try:
+        os.close(temp_fd)
+        os.remove(temp_path)
+    except Exception:
+        pass
+    try:
+        import shutil
+        shutil.rmtree(temp_dir)
+    except Exception:
+        pass
+
+
+def test_streaming_large_dsv_file_creation(large_csv_and_data_lake):
+    """Test creating a data lake from a large DSV file using streaming."""
+    csv_path, data_lake_path = large_csv_and_data_lake
+    
+    # Create DsvSource
+    dsv_source = DsvSource(csv_path)
+    
+    # Create data lake using factory with streaming
+    data_lake = DataLakeFactory.from_dsv_source(
+        dsv_source=dsv_source,
+        data_lake_path=data_lake_path
+    )
+    
+    # Verify the data lake was created correctly
+    assert isinstance(data_lake, DataLake)
+    assert len(data_lake.column_names) == 5
+    assert data_lake.column_names == ["col_0", "col_1", "col_2", "col_3", "col_4"]
+
+
+def test_streaming_large_dsv_file_data_integrity(large_csv_and_data_lake):
+    """Test data integrity when streaming large DSV files."""
+    csv_path, data_lake_path = large_csv_and_data_lake
+    
+    # Create DsvSource
+    dsv_source = DsvSource(csv_path)
+    
+    # Create data lake using factory
+    data_lake = DataLakeFactory.from_dsv_source(
+        dsv_source=dsv_source,
+        data_lake_path=data_lake_path
+    )
+    
+    # Verify data integrity by checking a few rows
+    from sqlalchemy import create_engine, text
+    engine = create_engine(data_lake.db_url)
+    with engine.connect() as conn:
+        # Check total row count
+        result = conn.execute(text(f"SELECT COUNT(*) FROM {data_lake.db_table}"))
+        row_count = result.scalar()
+        assert row_count == 10000
         
-        # Verify all columns are TEXT type initially
-        for col in source.columns:
-            self.assertEqual(col.inferred_type, DataType.TEXT)
-
-
-class TestDbSourceWithRealSQLite(unittest.TestCase):
-    """Integration tests for DbSource with real SQLite database."""
-
-    def setUp(self) -> None:
-        """Set up test fixtures."""
-        # Create a temporary SQLite database file
-        self.db_fd, self.db_path = tempfile.mkstemp(suffix=".db")
-        self.db_url = f"sqlite:///{self.db_path}"
-        self.db_schema = None  # SQLite does not use schemas
-        self.db_table = "test_table"
+        # Check first row
+        result = conn.execute(text(f"SELECT * FROM {data_lake.db_table} LIMIT 1"))
+        first_row = result.fetchone()
+        assert first_row is not None
+        assert first_row[0] == "0"  # First ID should be "0"
         
-        # Create table with some data
-        self.engine = create_engine(self.db_url)
-        metadata = MetaData()
-        Table(
-            self.db_table, metadata,
-            SAColumn("id", String, primary_key=True),
-            SAColumn("name", String, nullable=True),
-            SAColumn("value", String, nullable=True),
-        )
-        metadata.create_all(self.engine)
+        # Check last row
+        result = conn.execute(text(f"SELECT * FROM {data_lake.db_table} ORDER BY col_0 DESC LIMIT 1"))
+        last_row = result.fetchone()
+        assert last_row is not None
+        assert last_row[0] == "9999"  # Last ID should be "9999"
+
+
+def test_streaming_large_dsv_file_performance(large_csv_and_data_lake):
+    """Test performance of streaming large DSV files."""
+    import time
+    
+    csv_path, data_lake_path = large_csv_and_data_lake
+    
+    # Create DsvSource
+    dsv_source = DsvSource(csv_path)
+    
+    # Measure creation time
+    start_time = time.time()
+    data_lake = DataLakeFactory.from_dsv_source(
+        dsv_source=dsv_source,
+        data_lake_path=data_lake_path
+    )
+    end_time = time.time()
+    
+    creation_time = end_time - start_time
+    
+    # Verify the data lake was created successfully
+    assert isinstance(data_lake, DataLake)
+    
+    # Performance assertion (should complete within reasonable time)
+    # 10,000 rows should process in under 30 seconds
+    assert creation_time < 30.0, f"Data lake creation took {creation_time:.2f} seconds"
+
+
+def test_streaming_large_dsv_file_memory_usage(large_csv_and_data_lake):
+    """Test memory usage when streaming large DSV files."""
+    # Skip this test if psutil is not available
+    try:
+        import psutil
+        import os
         
-        # Insert some test data
-        with self.engine.connect() as conn:
-            conn.execute(text(f"INSERT INTO {self.db_table} VALUES ('1', 'Alice', '10.5')"))
-            conn.execute(text(f"INSERT INTO {self.db_table} VALUES ('2', 'Bob', '20.0')"))
-            conn.commit()
-
-    def tearDown(self) -> None:
-        """Clean up test fixtures."""
-        try:
-            self.engine.dispose()
-        except Exception:
-            pass
-        try:
-            os.close(self.db_fd)
-            os.remove(self.db_path)
-        except Exception:
-            pass
-
-    def test_dbsource_sqlite_columns(self):
-        """Test DbSource with real SQLite database."""
-        source = DbSource(
-            db_url=self.db_url,
-            db_schema=self.db_schema,
-            db_table=self.db_table
-        )
+        csv_path, data_lake_path = large_csv_and_data_lake
         
-        # Verify the source was created correctly
-        self.assertEqual(source.db_url, self.db_url)
-        self.assertEqual(source.db_schema, self.db_schema)
-        self.assertEqual(source.db_table, self.db_table)
-        self.assertEqual(len(source.columns), 3)
-        self.assertEqual([col.name for col in source.columns], ["id", "name", "value"])
-
-
-class TestDataLakeFactoryStreaming(unittest.TestCase):
-    """Integration tests for DataLakeFactory with streaming large files."""
-
-    def setUp(self) -> None:
-        """Set up test fixtures."""
-        # Create a temporary directory for the data lake
-        self.temp_dir = tempfile.mkdtemp()
-        self.data_lake_path = Path(self.temp_dir)
+        # Get initial memory usage
+        process = psutil.Process(os.getpid())
+        initial_memory = process.memory_info().rss
         
-        # Create a temporary CSV file
-        self.temp_fd, self.temp_path = tempfile.mkstemp(suffix=".csv")
-        self.csv_path = Path(self.temp_path)
-        
-        # Generate a large CSV file for testing
-        self._generate_large_csv_file()
-
-    def tearDown(self) -> None:
-        """Clean up test fixtures."""
-        try:
-            os.close(self.temp_fd)
-            os.remove(self.temp_path)
-        except Exception:
-            pass
-        try:
-            import shutil
-            shutil.rmtree(self.temp_dir)
-        except Exception:
-            pass
-
-    def _generate_large_csv_file(self) -> None:
-        """Generate a large CSV file for testing."""
-        import csv
-        import random
-        import string
-        
-        # Generate 10,000 rows of data
-        num_rows = 10000
-        num_columns = 5
-        
-        # Generate column names
-        column_names = [f"col_{i}" for i in range(num_columns)]
-        
-        with os.fdopen(self.temp_fd, 'w', encoding='utf-8', newline='') as f:
-            writer = csv.writer(f)
-            writer.writerow(column_names)
-            
-            for i in range(num_rows):
-                row = []
-                for j in range(num_columns):
-                    if j == 0:
-                        row.append(str(i))  # ID column
-                    elif j == 1:
-                        row.append(f"name_{i}")  # Name column
-                    elif j == 2:
-                        row.append(str(random.randint(1, 1000)))  # Integer column
-                    elif j == 3:
-                        row.append(f"{random.uniform(0, 100):.2f}")  # Float column
-                    else:
-                        row.append(''.join(random.choices(string.ascii_letters, k=10)))  # Text column
-                writer.writerow(row)
-
-    def test_streaming_large_dsv_file_creation(self) -> None:
-        """Test creating a data lake from a large DSV file using streaming."""
         # Create DsvSource
-        dsv_source = DsvSource(self.csv_path)
-        
-        # Create data lake using factory with streaming
-        data_lake = DataLakeFactory.from_dsv_source(
-            dsv_source=dsv_source,
-            data_lake_path=self.data_lake_path
-        )
-        
-        # Verify the data lake was created correctly
-        self.assertIsInstance(data_lake, DataLake)
-        self.assertEqual(len(data_lake.column_names), 5)
-        self.assertEqual(data_lake.column_names, ["col_0", "col_1", "col_2", "col_3", "col_4"])
-
-    def test_streaming_large_dsv_file_data_integrity(self) -> None:
-        """Test data integrity when streaming large DSV files."""
-        # Create DsvSource
-        dsv_source = DsvSource(self.csv_path)
+        dsv_source = DsvSource(csv_path)
         
         # Create data lake using factory
         data_lake = DataLakeFactory.from_dsv_source(
             dsv_source=dsv_source,
-            data_lake_path=self.data_lake_path
+            data_lake_path=data_lake_path
         )
         
-        # Verify data integrity by checking a few rows
-        from sqlalchemy import create_engine, text
-        engine = create_engine(data_lake.db_url)
-        with engine.connect() as conn:
-            # Check total row count
-            result = conn.execute(text(f"SELECT COUNT(*) FROM {data_lake.db_table}"))
-            row_count = result.scalar()
-            self.assertEqual(row_count, 10000)
-            
-            # Check first row
-            result = conn.execute(text(f"SELECT * FROM {data_lake.db_table} LIMIT 1"))
-            first_row = result.fetchone()
-            self.assertIsNotNone(first_row)
-            self.assertEqual(first_row[0], "0")  # First ID should be "0"
-            
-            # Check last row
-            result = conn.execute(text(f"SELECT * FROM {data_lake.db_table} ORDER BY col_0 DESC LIMIT 1"))
-            last_row = result.fetchone()
-            self.assertIsNotNone(last_row)
-            self.assertEqual(last_row[0], "9999")  # Last ID should be "9999"
-
-    def test_streaming_large_dsv_file_performance(self) -> None:
-        """Test performance of streaming large DSV files."""
-        import time
-        
-        # Create DsvSource
-        dsv_source = DsvSource(self.csv_path)
-        
-        # Measure creation time
-        start_time = time.time()
-        data_lake = DataLakeFactory.from_dsv_source(
-            dsv_source=dsv_source,
-            data_lake_path=self.data_lake_path
-        )
-        end_time = time.time()
-        
-        creation_time = end_time - start_time
+        # Get final memory usage
+        final_memory = process.memory_info().rss
+        memory_increase = final_memory - initial_memory
         
         # Verify the data lake was created successfully
-        self.assertIsInstance(data_lake, DataLake)
+        assert isinstance(data_lake, DataLake)
         
-        # Performance assertion (should complete within reasonable time)
-        # 10,000 rows should process in under 30 seconds
-        self.assertLess(creation_time, 30.0, f"Data lake creation took {creation_time:.2f} seconds")
+        # Memory usage assertion (should not increase excessively)
+        # Memory increase should be reasonable (less than 100MB for 10K rows)
+        memory_increase_mb = memory_increase / (1024 * 1024)
+        assert memory_increase_mb < 100.0, \
+            f"Memory usage increased by {memory_increase_mb:.2f} MB"
+    except ImportError:
+        # Skip test if psutil is not available
+        pytest.skip("psutil not available - skipping memory usage test")
 
-    def test_streaming_large_dsv_file_memory_usage(self) -> None:
-        """Test memory usage when streaming large DSV files."""
-        # Skip this test if psutil is not available
+
+def test_streaming_large_dsv_file_with_different_delimiters(large_csv_and_data_lake):
+    """Test streaming large DSV files with different delimiters."""
+    import csv
+    
+    csv_path, data_lake_path = large_csv_and_data_lake
+    
+    # Create a temporary pipe-delimited file
+    temp_fd, temp_path = tempfile.mkstemp(suffix=".txt")
+    pipe_csv_path = Path(temp_path)
+    
+    try:
+        # Generate pipe-delimited data
+        with os.fdopen(temp_fd, 'w', encoding='utf-8', newline='') as f:
+            writer = csv.writer(f, delimiter='|')
+            writer.writerow(["id", "name", "value"])
+            for i in range(1000):
+                writer.writerow([str(i), f"name_{i}", str(i * 1.5)])
+        
+        # Create DsvSource with pipe delimiter
+        dsv_source = DsvSource(pipe_csv_path, delimiter='|')
+        
+        # Create data lake using factory
+        data_lake = DataLakeFactory.from_dsv_source(
+            dsv_source=dsv_source,
+            data_lake_path=data_lake_path
+        )
+        
+        # Verify the data lake was created correctly
+        assert isinstance(data_lake, DataLake)
+        assert len(data_lake.column_names) == 3
+        assert data_lake.column_names == ["id", "name", "value"]
+        
+    finally:
         try:
-            import psutil
-            import os
-            
-            # Get initial memory usage
-            process = psutil.Process(os.getpid())
-            initial_memory = process.memory_info().rss
-            
-            # Create DsvSource
-            dsv_source = DsvSource(self.csv_path)
-            
-            # Create data lake using factory
-            data_lake = DataLakeFactory.from_dsv_source(
-                dsv_source=dsv_source,
-                data_lake_path=self.data_lake_path
-            )
-            
-            # Get final memory usage
-            final_memory = process.memory_info().rss
-            memory_increase = final_memory - initial_memory
-            
-            # Verify the data lake was created successfully
-            self.assertIsInstance(data_lake, DataLake)
-            
-            # Memory usage assertion (should not increase excessively)
-            # Memory increase should be reasonable (less than 100MB for 10K rows)
-            memory_increase_mb = memory_increase / (1024 * 1024)
-            self.assertLess(memory_increase_mb, 100.0, 
-                           f"Memory usage increased by {memory_increase_mb:.2f} MB")
-        except ImportError:
-            # Skip test if psutil is not available
-            self.skipTest("psutil not available - skipping memory usage test")
+            os.remove(temp_path)
+        except Exception:
+            pass
 
-    def test_streaming_large_dsv_file_with_different_delimiters(self) -> None:
-        """Test streaming large DSV files with different delimiters."""
-        import csv
-        
-        # Create a temporary pipe-delimited file
-        temp_fd, temp_path = tempfile.mkstemp(suffix=".txt")
-        csv_path = Path(temp_path)
-        
+
+def test_streaming_large_dsv_file_error_handling():
+    """Test error handling when streaming large DSV files."""
+    # Test with non-existent file
+    non_existent_path = Path("/non/existent/file.csv")
+    
+    with pytest.raises(FileProcessingError):
+        DsvSource(non_existent_path)
+    
+    # Test with empty file
+    temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
+    empty_path = Path(temp_path)
+    
+    try:
+        # Create empty file
+        with os.fdopen(temp_fd, 'w', encoding='utf-8') as _:
+            pass  # Empty file
+
+        # Empty files should be handled gracefully with 0 columns
+        dsv_source = DsvSource(empty_path)
+        assert len(dsv_source.columns) == 0
+
+    finally:
         try:
-            # Generate pipe-delimited data
-            with os.fdopen(temp_fd, 'w', encoding='utf-8', newline='') as f:
-                writer = csv.writer(f, delimiter='|')
-                writer.writerow(["id", "name", "value"])
-                for i in range(1000):
-                    writer.writerow([str(i), f"name_{i}", str(i * 1.5)])
-            
-            # Create DsvSource with pipe delimiter
-            dsv_source = DsvSource(csv_path, delimiter='|')
-            
-            # Create data lake using factory
-            data_lake = DataLakeFactory.from_dsv_source(
-                dsv_source=dsv_source,
-                data_lake_path=self.data_lake_path
-            )
-            
-            # Verify the data lake was created correctly
-            self.assertIsInstance(data_lake, DataLake)
-            self.assertEqual(len(data_lake.column_names), 3)
-            self.assertEqual(data_lake.column_names, ["id", "name", "value"])
-            
-        finally:
-            try:
-                os.remove(temp_path)
-            except Exception:
-                pass
-
-    def test_streaming_large_dsv_file_error_handling(self) -> None:
-        """Test error handling when streaming large DSV files."""
-        # Test with non-existent file
-        non_existent_path = Path("/non/existent/file.csv")
-        
-        with self.assertRaises(FileProcessingError):
-            dsv_source = DsvSource(non_existent_path)
-        
-        # Test with empty file
-        temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
-        empty_path = Path(temp_path)
-        
-        try:
-            # Create empty file
-            with os.fdopen(temp_fd, 'w', encoding='utf-8') as _:
-                pass  # Empty file
-
-            # Empty files should be handled gracefully with 0 columns
-            dsv_source = DsvSource(empty_path)
-            self.assertEqual(len(dsv_source.columns), 0)
-
-        finally:
-            try:
-                os.remove(temp_path)
-            except Exception:
-                pass
-
-
-if __name__ == '__main__':
-    unittest.main() 
+            os.remove(temp_path)
+        except Exception:
+            pass 

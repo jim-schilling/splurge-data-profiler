@@ -7,38 +7,39 @@ validating end-to-end functionality without mocking.
 
 import os
 import tempfile
-import unittest
+import pytest
 from pathlib import Path
 
 from splurge_data_profiler.source import DsvSource
 
 
-class TestDsvSourceIntegration(unittest.TestCase):
-    """Integration test for DsvSource using a real CSV file (no mocking)."""
+@pytest.fixture
+def temp_csv_file():
+    """Create a temporary CSV file for testing."""
+    temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
+    with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
+        f.write('id,name\n1,Alice\n2,Bob\n')
+    file_path = Path(temp_path)
 
-    def setUp(self) -> None:
-        # Create a temporary CSV file
-        self.temp_fd, self.temp_path = tempfile.mkstemp(suffix=".csv")
-        with os.fdopen(self.temp_fd, 'w', encoding='utf-8') as f:
-            f.write('id,name\n1,Alice\n2,Bob\n')
-        self.file_path = Path(self.temp_path)
+    yield file_path
 
-    def tearDown(self) -> None:
-        os.remove(self.temp_path)
-
-    def test_dsv_source_real_file(self):
-        # This will use the real DsvHelper and TabularDataModel
-        source = DsvSource(self.file_path)
-        try:
-            columns = source._initialize()
-        except (ValueError, RuntimeError):
-            raise
-        except Exception as exc:
-            raise RuntimeError(f"Unexpected error in test: {exc}")
-        self.assertTrue(len(columns) >= 2)
-        self.assertEqual(columns[0].name, "id")
-        self.assertEqual(columns[1].name, "name")
+    # Cleanup
+    try:
+        os.remove(temp_path)
+    except Exception:
+        pass
 
 
-if __name__ == "__main__":
-    unittest.main()
+def test_dsv_source_real_file(temp_csv_file):
+    """Test DsvSource with a real file."""
+    # This will use the real DsvHelper and TabularDataModel
+    source = DsvSource(temp_csv_file)
+    try:
+        columns = source._initialize()
+    except (ValueError, RuntimeError):
+        raise
+    except Exception as exc:
+        raise RuntimeError(f"Unexpected error in test: {exc}")
+    assert len(columns) >= 2
+    assert columns[0].name == "id"
+    assert columns[1].name == "name"

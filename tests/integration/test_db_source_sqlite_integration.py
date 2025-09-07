@@ -7,52 +7,51 @@ validating end-to-end functionality without mocking.
 
 import os
 import tempfile
-import unittest
+import pytest
 
 from sqlalchemy import create_engine, MetaData, Column as SAColumn, String, Table
 
 from splurge_data_profiler.source import DbSource
 
 
-class TestDbSourceWithRealSQLite(unittest.TestCase):
-    """Integration test for DbSource using a real SQLite database (no mocking)."""
+@pytest.fixture
+def temp_sqlite_db():
+    """Create a temporary SQLite database for testing."""
+    db_fd, db_path = tempfile.mkstemp(suffix=".db")
+    db_url = f"sqlite:///{db_path}"
+    db_table = "test_table"
+    db_schema = None  # SQLite does not use schemas
 
-    def setUp(self) -> None:
-        # Create a temporary SQLite database file
-        self.db_fd, self.db_path = tempfile.mkstemp(suffix=".db")
-        self.db_url = f"sqlite:///{self.db_path}"
-        self.db_table = "test_table"
-        self.db_schema = None  # SQLite does not use schemas
-        # Create table
-        self.engine = create_engine(self.db_url)
-        metadata = MetaData()
-        Table(
-            self.db_table, metadata,
-            SAColumn("id", String, primary_key=True),
-            SAColumn("name", String, nullable=True),
-        )
-        metadata.create_all(self.engine)
+    # Create table
+    engine = create_engine(db_url)
+    metadata = MetaData()
+    Table(
+        db_table, metadata,
+        SAColumn("id", String, primary_key=True),
+        SAColumn("name", String, nullable=True),
+    )
+    metadata.create_all(engine)
 
-    def tearDown(self) -> None:
-        # Ensure engine is disposed before removing file
-        try:
-            self.engine.dispose()
-        except Exception:
-            pass
-        os.close(self.db_fd)
-        try:
-            os.remove(self.db_path)
-        except PermissionError:
-            # File might still be in use, that's okay for tests
-            pass
+    yield db_url, db_table, db_schema
 
-    def test_dbsource_sqlite_columns(self):
-        source = DbSource(db_url=self.db_url, db_schema=self.db_schema, db_table=self.db_table)
-        self.assertEqual(len(source.columns), 2)
-        self.assertEqual(source.columns[0].name, "id")
-        self.assertEqual(source.columns[1].name, "name")
-        self.assertTrue(all(col.raw_type.name == "TEXT" for col in source.columns))
+    # Cleanup
+    try:
+        engine.dispose()
+    except Exception:
+        pass
+    os.close(db_fd)
+    try:
+        os.remove(db_path)
+    except PermissionError:
+        # File might still be in use, that's okay for tests
+        pass
 
 
-if __name__ == "__main__":
-    unittest.main()
+def test_dbsource_sqlite_columns(temp_sqlite_db):
+    """Test DbSource with real SQLite database."""
+    db_url, db_table, db_schema = temp_sqlite_db
+    source = DbSource(db_url=db_url, db_schema=db_schema, db_table=db_table)
+    assert len(source.columns) == 2
+    assert source.columns[0].name == "id"
+    assert source.columns[1].name == "name"
+    assert all(col.raw_type.name == "TEXT" for col in source.columns)
