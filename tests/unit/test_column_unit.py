@@ -1,19 +1,17 @@
-import unittest
-
 from splurge_data_profiler.source import Column, DataType
 
 
-class TestColumn(unittest.TestCase):
+class TestColumn:
     """Test cases for Column class."""
 
     def test_column_initialization_defaults(self) -> None:
         """Test Column initialization with default values."""
         column = Column("test_column")
 
-        self.assertEqual(column.name, "test_column")
-        self.assertEqual(column.inferred_type, DataType.TEXT)
-        self.assertEqual(column.raw_type, DataType.TEXT)
-        self.assertTrue(column.is_nullable)
+        assert column.name == "test_column"
+        assert column.inferred_type == DataType.TEXT
+        assert column.raw_type == DataType.TEXT
+        assert column.is_nullable is True
 
     def test_column_initialization_custom_values(self) -> None:
         """Test Column initialization with custom values."""
@@ -23,25 +21,21 @@ class TestColumn(unittest.TestCase):
             is_nullable=False
         )
 
-        self.assertEqual(column.name, "custom_column")
-        self.assertEqual(column.inferred_type, DataType.INTEGER)
-        self.assertEqual(column.raw_type, DataType.TEXT)
-        self.assertFalse(column.is_nullable)
+        assert column.name == "custom_column"
+        assert column.inferred_type == DataType.INTEGER
+        assert column.raw_type == DataType.TEXT
+        assert column.is_nullable is False
 
     def test_column_string_representation(self) -> None:
         """Test Column string representation."""
         column = Column("test_column", inferred_type=DataType.FLOAT)
 
         expected_str = "test_column (DataType.FLOAT)"
-        self.assertEqual(str(column), expected_str)
+        assert str(column) == expected_str
 
     def test_column_repr_representation(self) -> None:
         """Test Column repr representation."""
         column = Column("test_column", inferred_type=DataType.FLOAT, is_nullable=False)
 
         expected_repr = "Column(name=test_column, inferred_type=DataType.FLOAT, raw_type=DataType.TEXT, is_nullable=False)"
-        self.assertEqual(repr(column), expected_repr)
-
-
-if __name__ == '__main__':
-    unittest.main()
+        assert repr(column) == expected_repr

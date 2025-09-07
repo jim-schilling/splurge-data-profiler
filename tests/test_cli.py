@@ -4,7 +4,6 @@ import pytest
 import tempfile
 import json
 import os
-import unittest
 from pathlib import Path
 from unittest.mock import patch
 
@@ -44,7 +43,7 @@ def test_cli_invalid_command():
     assert "error" in result.stderr.lower() or "unknown" in result.stderr.lower()
 
 
-class TestCliFunctions(unittest.TestCase):
+class TestCliFunctions:
     """Test individual CLI functions."""
 
     def test_load_config_valid(self):
@@ -111,21 +110,21 @@ class TestCliFunctions(unittest.TestCase):
             result = create_dsv_source_from_config(dsv_path, config)
             
             # Verify the result is a DsvSource
-            self.assertIsInstance(result, DsvSource)
-            self.assertEqual(result.file_path, dsv_path)
-            self.assertEqual(result.delimiter, ',')
-            self.assertEqual(result.strip, True)
-            self.assertEqual(result.bookend, '"')
-            self.assertEqual(result.bookend_strip, True)
-            self.assertEqual(result.encoding, 'utf-8')
-            self.assertEqual(result.skip_header_rows, 0)
-            self.assertEqual(result.skip_footer_rows, 0)
-            self.assertEqual(result.header_rows, 1)
-            self.assertEqual(result.skip_empty_rows, True)
+            assert isinstance(result, DsvSource)
+            assert result.file_path == dsv_path
+            assert result.delimiter == ','
+            assert result.strip == True
+            assert result.bookend == '"'
+            assert result.bookend_strip == True
+            assert result.encoding == 'utf-8'
+            assert result.skip_header_rows == 0
+            assert result.skip_footer_rows == 0
+            assert result.header_rows == 1
+            assert result.skip_empty_rows == True
             
             # Verify columns were loaded
-            self.assertEqual(len(result.columns), 3)
-            self.assertEqual([col.name for col in result.columns], ["id", "name", "value"])
+            assert len(result.columns) == 3
+            assert [col.name for col in result.columns] == ["id", "name", "value"]
             
         finally:
             os.unlink(dsv_path)
@@ -156,22 +155,22 @@ class TestCliFunctions(unittest.TestCase):
             result = create_dsv_source_from_config(dsv_path, config)
             
             # Verify the result is a DsvSource
-            self.assertIsInstance(result, DsvSource)
-            self.assertEqual(result.file_path, dsv_path)
-            self.assertEqual(result.delimiter, '|')
-            self.assertEqual(result.strip, False)
-            self.assertEqual(result.bookend, "'")
-            self.assertEqual(result.bookend_strip, False)
-            self.assertEqual(result.encoding, 'latin-1')
-            self.assertEqual(result.skip_header_rows, 2)
-            self.assertEqual(result.skip_footer_rows, 1)
-            self.assertEqual(result.header_rows, 1)
-            self.assertEqual(result.skip_empty_rows, False)
+            assert isinstance(result, DsvSource)
+            assert result.file_path == dsv_path
+            assert result.delimiter == '|'
+            assert result.strip == False
+            assert result.bookend == "'"
+            assert result.bookend_strip == False
+            assert result.encoding == 'latin-1'
+            assert result.skip_header_rows == 2
+            assert result.skip_footer_rows == 1
+            assert result.header_rows == 1
+            assert result.skip_empty_rows == False
             
             # Verify columns were loaded correctly
             # Should use "id|name|value" as header (after skipping 2 rows)
-            self.assertEqual(len(result.columns), 3)
-            self.assertEqual([col.name for col in result.columns], ["id", "name", "value"])
+            assert len(result.columns) == 3
+            assert [col.name for col in result.columns] == ["id", "name", "value"]
             
         finally:
             os.unlink(dsv_path)
@@ -228,11 +227,11 @@ class TestCliFunctions(unittest.TestCase):
             
             # Verify print calls were made for verbose output
             print_calls = [call[0][0] for call in mock_print.call_args_list]
-            self.assertTrue(any("Loading configuration" in str(call) for call in print_calls))
-            self.assertTrue(any("Creating DSV source" in str(call) for call in print_calls))
-            self.assertTrue(any("Creating data lake" in str(call) for call in print_calls))
-            self.assertTrue(any("PROFILING RESULTS" in str(call) for call in print_calls))
-            self.assertTrue(any("Profiling completed successfully" in str(call) for call in print_calls))
+            assert(any("Loading configuration" in str(call) for call in print_calls))
+            assert(any("Creating DSV source" in str(call) for call in print_calls))
+            assert(any("Creating data lake" in str(call) for call in print_calls))
+            assert(any("PROFILING RESULTS" in str(call) for call in print_calls))
+            assert(any("Profiling completed successfully" in str(call) for call in print_calls))
             
         finally:
             # Clean up - handle potential file lock issues on Windows

@@ -5,17 +5,16 @@ This module defines domain-specific exceptions used throughout the data profiler
 to provide more meaningful error messages and better error handling.
 """
 
-from typing import Optional
 
 
 class DataProfilerError(Exception):
     """Base exception for all data profiler errors."""
 
     def __init__(
-            self,
-            message: str,
-            *,
-            details: Optional[str] = None
+        self,
+        message: str,
+        *,
+        details: str | None = None
     ) -> None:
         """
         Initialize a DataProfilerError.

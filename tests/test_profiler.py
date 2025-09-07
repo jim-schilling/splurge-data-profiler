@@ -1,6 +1,7 @@
 import os
 import tempfile
-import unittest
+import pytest
+import re
 from pathlib import Path
 from datetime import datetime, date, time, timedelta
 import csv
@@ -13,98 +14,80 @@ from splurge_data_profiler.profiler import Profiler
 from splurge_data_profiler.exceptions import DatabaseError
 
 
-class TestProfilerComprehensive(unittest.TestCase):
+class TestProfilerComprehensive:
     """Test comprehensive profiling functionality."""
 
-    @classmethod
-    def setUpClass(cls) -> None:
+    
+    def setup_method(self) -> None:
         """Set up test fixtures once for the entire test class."""
         # Create temporary directory for data lake
-        cls.temp_dir = tempfile.mkdtemp()
-        cls.data_lake_path = Path(cls.temp_dir)
+        self.temp_dir = tempfile.mkdtemp()
+        self.data_lake_path = Path(self.temp_dir)
         
         # Create temporary CSV file
-        cls.temp_fd, cls.temp_path = tempfile.mkstemp(suffix=".csv")
-        cls.csv_path = Path(cls.temp_path)
+        self.temp_fd, self.temp_path = tempfile.mkstemp(suffix=".csv")
+        self.csv_path = Path(self.temp_path)
         
         # Generate comprehensive test data (reduced from 15000 to 1000 rows)
-        cls._generate_comprehensive_csv()
+        self._generate_comprehensive_csv()
         
         # Create DsvSource and DataLake
-        cls.dsv_source = DsvSource(cls.csv_path, delimiter='|', bookend='"')
-        cls.data_lake = DataLakeFactory.from_dsv_source(
-            dsv_source=cls.dsv_source,
-            data_lake_path=cls.data_lake_path
+        self.dsv_source = DsvSource(self.csv_path, delimiter='|', bookend='"')
+        self.data_lake = DataLakeFactory.from_dsv_source(
+            dsv_source=self.dsv_source,
+            data_lake_path=self.data_lake_path
         )
-
-    @classmethod
-    def tearDownClass(cls) -> None:
-        """Clean up test fixtures once for the entire test class."""
-        # Close and remove temporary CSV file
-        try:
-            os.close(cls.temp_fd)
-            os.unlink(cls.temp_path)
-        except (OSError, AttributeError):
-            pass
         
-        # Remove temporary directory and contents
-        try:
-            shutil.rmtree(cls.temp_dir)
-        except OSError:
-            pass
-
-    def setUp(self) -> None:
-        """Set up test fixtures for each test method."""
         # Create a fresh Profiler instance for each test
         self.profiler = Profiler(data_lake=self.data_lake)
 
-    @classmethod
-    def _generate_comprehensive_csv(cls) -> None:
+    
+    def _generate_comprehensive_csv(self) -> None:
         """Generate a comprehensive CSV file with all data types and 1000 rows."""
         column_configs = [
             # TEXT columns
-            ("text_simple", "TEXT", cls._generate_text_values),
-            ("text_names", "TEXT", cls._generate_name_values),
-            ("text_emails", "TEXT", cls._generate_email_values),
-            ("text_addresses", "TEXT", cls._generate_address_values),
+            ("text_simple", "TEXT", self._generate_text_values),
+            ("text_names", "TEXT", self._generate_name_values),
+            ("text_emails", "TEXT", self._generate_email_values),
+            ("text_addresses", "TEXT", self._generate_address_values),
             
             # INTEGER columns
-            ("integer_small", "INTEGER", cls._generate_small_integer_values),
-            ("integer_large", "INTEGER", cls._generate_large_integer_values),
-            ("integer_negative", "INTEGER", cls._generate_negative_integer_values),
-            ("integer_mixed", "INTEGER", cls._generate_mixed_integer_values),
+            ("integer_small", "INTEGER", self._generate_small_integer_values),
+            ("integer_large", "INTEGER", self._generate_large_integer_values),
+            ("integer_negative", "INTEGER", self._generate_negative_integer_values),
+            ("integer_mixed", "INTEGER", self._generate_mixed_integer_values),
             
             # FLOAT columns
-            ("float_simple", "FLOAT", cls._generate_simple_float_values),
-            ("float_precise", "FLOAT", cls._generate_precise_float_values),
-            ("float_scientific", "FLOAT", cls._generate_scientific_float_values),
-            ("float_currency", "FLOAT", cls._generate_currency_float_values),
+            ("float_simple", "FLOAT", self._generate_simple_float_values),
+            ("float_precise", "FLOAT", self._generate_precise_float_values),
+            ("float_scientific", "FLOAT", self._generate_scientific_float_values),
+            ("float_currency", "FLOAT", self._generate_currency_float_values),
             
             # BOOLEAN columns
-            ("boolean_simple", "BOOLEAN", cls._generate_boolean_values),
-            ("boolean_text", "BOOLEAN", cls._generate_boolean_text_values),
-            ("boolean_mixed", "BOOLEAN", cls._generate_mixed_boolean_values),
+            ("boolean_simple", "BOOLEAN", self._generate_boolean_values),
+            ("boolean_text", "BOOLEAN", self._generate_boolean_text_values),
+            ("boolean_mixed", "BOOLEAN", self._generate_mixed_boolean_values),
             
             # DATE columns
-            ("date_simple", "DATE", cls._generate_date_values),
-            ("date_formatted", "DATE", cls._generate_formatted_date_values),
-            ("date_mixed", "DATE", cls._generate_mixed_date_values),
+            ("date_simple", "DATE", self._generate_date_values),
+            ("date_formatted", "DATE", self._generate_formatted_date_values),
+            ("date_mixed", "DATE", self._generate_mixed_date_values),
             
             # TIME columns
-            ("time_simple", "TIME", cls._generate_time_values),
-            ("time_formatted", "TIME", cls._generate_formatted_time_values),
-            ("time_mixed", "TIME", cls._generate_mixed_time_values),
+            ("time_simple", "TIME", self._generate_time_values),
+            ("time_formatted", "TIME", self._generate_formatted_time_values),
+            ("time_mixed", "TIME", self._generate_mixed_time_values),
             
             # DATETIME columns
-            ("datetime_simple", "DATETIME", cls._generate_datetime_values),
-            ("datetime_formatted", "DATETIME", cls._generate_formatted_datetime_values),
-            ("datetime_mixed", "DATETIME", cls._generate_mixed_datetime_values),
+            ("datetime_simple", "DATETIME", self._generate_datetime_values),
+            ("datetime_formatted", "DATETIME", self._generate_formatted_datetime_values),
+            ("datetime_mixed", "DATETIME", self._generate_mixed_datetime_values),
         ]
         header = [config[0] for config in column_configs]
         # Use pipe as delimiter and double quote as bookend
         delimiter = '|'
         bookend = '"'
-        with os.fdopen(cls.temp_fd, 'w', encoding='utf-8', newline='') as f:
+        with os.fdopen(self.temp_fd, 'w', encoding='utf-8', newline='') as f:
             writer = csv.writer(f, delimiter=delimiter, quotechar=bookend, quoting=csv.QUOTE_ALL)
             writer.writerow(header)
             for i in range(1000):
@@ -112,8 +95,8 @@ class TestProfilerComprehensive(unittest.TestCase):
                 writer.writerow(row_data)
 
 
-    @classmethod
-    def _generate_text_values(cls, index: int) -> str:
+    
+    def _generate_text_values(self, index: int) -> str:
         """Generate text values."""
         texts = [
             "Lorem ipsum dolor sit amet",
@@ -129,99 +112,99 @@ class TestProfilerComprehensive(unittest.TestCase):
         ]
         return texts[index % len(texts)]
 
-    @classmethod
-    def _generate_name_values(cls, index: int) -> str:
+    
+    def _generate_name_values(self, index: int) -> str:
         """Generate name values."""
         first_names = ["Alice", "Bob", "Charlie", "Diana", "Eve", "Frank", "Grace", "Henry"]
         last_names = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller"]
         return f"{first_names[index % len(first_names)]} {last_names[index % len(last_names)]}"
 
-    @classmethod
-    def _generate_email_values(cls, index: int) -> str:
+    
+    def _generate_email_values(self, index: int) -> str:
         """Generate email values."""
         domains = ["example.com", "test.org", "sample.net", "demo.co.uk"]
         return f"user{index}@{domains[index % len(domains)]}"
 
-    @classmethod
-    def _generate_address_values(cls, index: int) -> str:
+    
+    def _generate_address_values(self, index: int) -> str:
         """Generate address values."""
         streets = ["123 Main St", "456 Oak Ave", "789 Pine Rd", "321 Elm Blvd"]
         cities = ["New York", "Los Angeles", "Chicago", "Houston"]
         return f"{streets[index % len(streets)]}, {cities[index % len(cities)]}"
 
-    @classmethod
-    def _generate_small_integer_values(cls, index: int) -> int:
+    
+    def _generate_small_integer_values(self, index: int) -> int:
         """Generate small integer values."""
         return index % 100
 
-    @classmethod
-    def _generate_large_integer_values(cls, index: int) -> int:
+    
+    def _generate_large_integer_values(self, index: int) -> int:
         """Generate large integer values."""
         return 1000000 + index
 
-    @classmethod
-    def _generate_negative_integer_values(cls, index: int) -> int:
+    
+    def _generate_negative_integer_values(self, index: int) -> int:
         """Generate negative integer values."""
         return -1000 - index
 
-    @classmethod
-    def _generate_mixed_integer_values(cls, index: int) -> int:
+    
+    def _generate_mixed_integer_values(self, index: int) -> int:
         """Generate mixed integer values (including some text)."""
         if index % 20 == 0:  # 5% of values are text
             return f"text_{index}"
         return index * 10
 
-    @classmethod
-    def _generate_simple_float_values(cls, index: int) -> float:
+    
+    def _generate_simple_float_values(self, index: int) -> float:
         """Generate simple float values."""
         return index * 1.5
 
-    @classmethod
-    def _generate_precise_float_values(cls, index: int) -> float:
+    
+    def _generate_precise_float_values(self, index: int) -> float:
         """Generate precise float values."""
         return round(index * 3.14159, 5)
 
-    @classmethod
-    def _generate_scientific_float_values(cls, index: int) -> float:
+    
+    def _generate_scientific_float_values(self, index: int) -> float:
         """Generate scientific notation float values."""
         return index * 1e6
 
-    @classmethod
-    def _generate_currency_float_values(cls, index: int) -> float:
+    
+    def _generate_currency_float_values(self, index: int) -> float:
         """Generate currency-like float values."""
         return round(index * 10.99, 2)
 
-    @classmethod
-    def _generate_boolean_values(cls, index: int) -> bool:
+    
+    def _generate_boolean_values(self, index: int) -> bool:
         """Generate boolean values."""
         return bool(index % 2)
 
-    @classmethod
-    def _generate_boolean_text_values(cls, index: int) -> str:
+    
+    def _generate_boolean_text_values(self, index: int) -> str:
         """Generate boolean text values."""
         return "true" if index % 2 else "false"
 
-    @classmethod
-    def _generate_mixed_boolean_values(cls, index: int) -> str:
+    
+    def _generate_mixed_boolean_values(self, index: int) -> str:
         """Generate mixed boolean values."""
         values = ["true", "false", "yes", "no", "1", "0", "Y", "N"]
         return values[index % len(values)]
 
-    @classmethod
-    def _generate_date_values(cls, index: int) -> date:
+    
+    def _generate_date_values(self, index: int) -> date:
         """Generate date values."""
         start_date = date(2020, 1, 1)
         return start_date + timedelta(days=index)
 
-    @classmethod
-    def _generate_formatted_date_values(cls, index: int) -> str:
+    
+    def _generate_formatted_date_values(self, index: int) -> str:
         """Generate formatted date values."""
         start_date = date(2020, 1, 1)
         date_obj = start_date + timedelta(days=index)
         return date_obj.strftime("%m/%d/%Y")
 
-    @classmethod
-    def _generate_mixed_date_values(cls, index: int) -> str:
+    
+    def _generate_mixed_date_values(self, index: int) -> str:
         """Generate mixed date values."""
         if index % 10 == 0:  # 10% are invalid dates
             return f"invalid_date_{index}"
@@ -229,41 +212,41 @@ class TestProfilerComprehensive(unittest.TestCase):
         date_obj = start_date + timedelta(days=index)
         return date_obj.strftime("%Y-%m-%d")
 
-    @classmethod
-    def _generate_time_values(cls, index: int) -> time:
+    
+    def _generate_time_values(self, index: int) -> time:
         """Generate time values."""
         return time(hour=index % 24, minute=index % 60, second=index % 60)
 
-    @classmethod
-    def _generate_formatted_time_values(cls, index: int) -> str:
+    
+    def _generate_formatted_time_values(self, index: int) -> str:
         """Generate formatted time values."""
         time_obj = time(hour=index % 24, minute=index % 60, second=index % 60)
         return time_obj.strftime("%H:%M:%S")
 
-    @classmethod
-    def _generate_mixed_time_values(cls, index: int) -> str:
+    
+    def _generate_mixed_time_values(self, index: int) -> str:
         """Generate mixed time values."""
         if index % 15 == 0:  # ~6.7% are invalid times
             return f"invalid_time_{index}"
         time_obj = time(hour=index % 24, minute=index % 60, second=index % 60)
         return time_obj.strftime("%I:%M %p")
 
-    @classmethod
-    def _generate_datetime_values(cls, index: int) -> str:
+    
+    def _generate_datetime_values(self, index: int) -> str:
         """Generate datetime values in ISO 8601 format."""
         start_datetime = datetime(2020, 1, 1, 0, 0, 0)
         datetime_obj = start_datetime + timedelta(hours=index)
         return datetime_obj.strftime("%Y-%m-%dT%H:%M:%S")
 
-    @classmethod
-    def _generate_formatted_datetime_values(cls, index: int) -> str:
+    
+    def _generate_formatted_datetime_values(self, index: int) -> str:
         """Generate formatted datetime values in ISO 8601 format."""
         start_datetime = datetime(2020, 1, 1, 0, 0, 0)
         datetime_obj = start_datetime + timedelta(hours=index)
         return datetime_obj.strftime("%Y-%m-%dT%H:%M:%S")
 
-    @classmethod
-    def _generate_mixed_datetime_values(cls, index: int) -> str:
+    
+    def _generate_mixed_datetime_values(self, index: int) -> str:
         """Generate mixed datetime values."""
         if index % 25 == 0:  # 4% are invalid datetimes
             return f"invalid_datetime_{index}"
@@ -273,25 +256,25 @@ class TestProfilerComprehensive(unittest.TestCase):
 
     def test_profiler_initialization(self) -> None:
         """Test Profiler initialization."""
-        self.assertIsNotNone(self.profiler)
-        self.assertEqual(len(self.profiler.profiled_columns), len(self.dsv_source.columns))
+        assert (self.profiler)
+        assert len(self.profiler.profiled_columns) == len(self.dsv_source.columns)
         
         # Check that profiled columns are copies
         for i, column in enumerate(self.profiler.profiled_columns):
-            self.assertEqual(column.name, self.dsv_source.columns[i].name)
-            self.assertIsNot(column, self.dsv_source.columns[i])
+            assert column.name == self.dsv_source.columns[i].name
+            assert column is not self.dsv_source.columns[i]
 
     def test_profiler_string_representation(self) -> None:
         """Test Profiler string representation."""
         expected_str = f"Profiler(data_lake={self.data_lake}, profiled_columns={len(self.profiler.profiled_columns)})"
-        self.assertEqual(str(self.profiler), expected_str)
+        assert str(self.profiler) == expected_str
 
     def test_profiler_repr_representation(self) -> None:
         """Test Profiler repr representation."""
         repr_str = repr(self.profiler)
-        self.assertIn("Profiler", repr_str)
-        self.assertIn("data_lake=", repr_str)
-        self.assertIn("profiled_columns=", repr_str)
+        assert "Profiler" in repr_str
+        assert "data_lake=" in repr_str
+        assert "profiled_columns=" in repr_str
 
     def test_profiler_equality(self) -> None:
         """Test Profiler equality comparison."""
@@ -299,19 +282,19 @@ class TestProfilerComprehensive(unittest.TestCase):
         profiler2 = Profiler(data_lake=self.data_lake)
         
         # They should be equal since they have the same data lake
-        self.assertEqual(profiler1, profiler2)
+        assert profiler1 == profiler2
         
         # Create a different data lake by modifying the profiled columns
         profiler1.profile(sample_size=100)  # This modifies the profiled columns
         profiler3 = Profiler(data_lake=self.data_lake)  # Fresh profiler with same data lake
         
         # They should not be equal since profiler1 has profiled columns and profiler3 doesn't
-        self.assertNotEqual(profiler1, profiler3)
+        assert profiler1 != profiler3
 
     def test_profiler_equality_different_type(self) -> None:
         """Test Profiler equality with different type."""
         other = "not a profiler"
-        self.assertNotEqual(self.profiler, other)
+        assert self.profiler != other
 
     def test_profiler_comprehensive_profiling(self) -> None:
         """Test comprehensive profiling with all data types."""
@@ -324,7 +307,7 @@ class TestProfilerComprehensive(unittest.TestCase):
 
         
         # Verify that all columns were profiled
-        self.assertEqual(len(profiled_columns), 24)  # 24 columns total
+        assert len(profiled_columns) == 24  # 24 columns total
         
         # Check specific data type inferences
         expected_types = {
@@ -370,9 +353,8 @@ class TestProfilerComprehensive(unittest.TestCase):
         # Verify each column's inferred type
         for column in profiled_columns:
             if column.name in expected_types:
-                self.assertEqual(
-                    column.inferred_type,
-                    expected_types[column.name],
+                assert (
+                    column.inferred_type == expected_types[column.name],
                     f"Column {column.name} should be {expected_types[column.name]} but got {column.inferred_type}"
                 )
 
@@ -395,14 +377,8 @@ class TestProfilerComprehensive(unittest.TestCase):
         for i, (col_100, col_500, col_1000) in enumerate(zip(results_100, results_500, results_1000)):
             column_name = self.profiler.profiled_columns[i].name
             if "mixed" not in column_name:  # Skip mixed columns
-                self.assertEqual(
-                    col_100, col_500,
-                    f"Sample size 100 vs 500 inconsistent for {column_name}"
-                )
-                self.assertEqual(
-                    col_500, col_1000,
-                    f"Sample size 500 vs 1000 inconsistent for {column_name}"
-                )
+                assert col_100 == col_500, f"Sample size 100 vs 500 inconsistent for {column_name}"
+                assert col_500 == col_1000, f"Sample size 500 vs 1000 inconsistent for {column_name}"
 
     def test_profiler_original_data_unmodified(self) -> None:
         """Test that original DataLake and DbSource remain unmodified."""
@@ -414,11 +390,11 @@ class TestProfilerComprehensive(unittest.TestCase):
         
         # Check that original types are unchanged
         current_types = [col.inferred_type for col in self.data_lake.db_source.columns]
-        self.assertEqual(original_types, current_types)
+        assert original_types == current_types
         
         # Check that profiled columns have updated types
         profiled_types = [col.inferred_type for col in self.profiler.profiled_columns]
-        self.assertNotEqual(original_types, profiled_types)
+        assert original_types != profiled_types
 
     def test_profiler_large_dataset_performance(self) -> None:
         """Test profiling performance with large dataset."""
@@ -432,11 +408,11 @@ class TestProfilerComprehensive(unittest.TestCase):
         profiling_time = end_time - start_time
         
         # Profiling should complete within reasonable time (reduced threshold)
-        self.assertLess(profiling_time, 30.0, f"Profiling took {profiling_time:.2f} seconds, should be under 30 seconds")
+        assert profiling_time < 30.0, f"Profiling took {profiling_time:.2f} seconds, should be under 30 seconds"
         
         # Verify results were obtained
         profiled_columns = self.profiler.profiled_columns
-        self.assertTrue(any(col.inferred_type != DataType.TEXT for col in profiled_columns))
+        assert(any(col.inferred_type != DataType.TEXT for col in profiled_columns))
 
     def test_profiler_error_handling(self) -> None:
         """Test profiler error handling with invalid database connection."""
@@ -452,7 +428,7 @@ class TestProfilerComprehensive(unittest.TestCase):
         invalid_profiler = Profiler(data_lake=invalid_data_lake)
         
         # Should raise DatabaseError when trying to profile
-        with self.assertRaises(DatabaseError):
+        with pytest.raises(DatabaseError):
             invalid_profiler.profile(sample_size=1000)
 
     def test_profiler_create_inferred_table(self) -> None:
@@ -471,8 +447,8 @@ class TestProfilerComprehensive(unittest.TestCase):
         new_table_name = self.profiler.create_inferred_table()
         
         # Verify the table was created
-        self.assertIsNotNone(new_table_name)
-        self.assertEqual(new_table_name, f"{self.data_lake.db_table}_inferred")
+        assert (new_table_name)
+        assert new_table_name == f"{self.data_lake.db_table}_inferred"
         
         # Connect to database and verify table structure
         engine = create_engine(self.data_lake.db_url)
@@ -485,7 +461,7 @@ class TestProfilerComprehensive(unittest.TestCase):
                 
                 # Verify we have the expected number of columns
                 # Original columns + cast columns = 24 * 2 = 48 columns
-                self.assertEqual(len(columns_info), 48)
+                assert len(columns_info) == 48
                 
                 # Verify column structure
                 column_names = [col['name'] for col in columns_info]
@@ -493,18 +469,16 @@ class TestProfilerComprehensive(unittest.TestCase):
                 # Check that we have both original and cast columns
                 for column in self.profiler.profiled_columns:
                     # Original column should exist
-                    self.assertIn(column.name, column_names, 
-                                f"Original column {column.name} not found")
+                    assert column.name in column_names, f"Original column {column.name} not found"
                     
                     # Cast column should exist
                     cast_col_name = f"{column.name}_cast"
-                    self.assertIn(cast_col_name, column_names,
-                                f"Cast column {cast_col_name} not found")
+                    assert cast_col_name in column_names, f"Cast column {cast_col_name} not found"
                 
                 # Verify data was populated
                 result = connection.execute(text(f"SELECT COUNT(*) FROM {new_table_name}"))
                 row_count = result.fetchone()[0]
-                self.assertEqual(row_count, 1000, "Table should have 1000 rows")
+                assert row_count == 1000, "Table should have 1000 rows"
                 
                 # Test specific casting examples
                 self._verify_casting_examples(connection, new_table_name)
@@ -528,8 +502,8 @@ class TestProfilerComprehensive(unittest.TestCase):
         for row in rows:
             original, cast_value = row
             if original and cast_value is not None:
-                self.assertIsInstance(cast_value, int)
-                self.assertEqual(int(original), cast_value)
+                assert isinstance(cast_value, int)
+                assert int(original) == cast_value
         
         # Test float casting
         result = connection.execute(text(
@@ -540,8 +514,8 @@ class TestProfilerComprehensive(unittest.TestCase):
         for row in rows:
             original, cast_value = row
             if original and cast_value is not None:
-                self.assertIsInstance(cast_value, float)
-                self.assertAlmostEqual(float(original), cast_value, places=6)
+                assert isinstance(cast_value, float)
+                assert abs(float(original) - cast_value) < 0.000001
         
         # Test boolean casting
         result = connection.execute(text(
@@ -556,10 +530,10 @@ class TestProfilerComprehensive(unittest.TestCase):
                 if isinstance(cast_value, int):
                     # Convert 0/1 to True/False for testing
                     cast_value = bool(cast_value)
-                self.assertIsInstance(cast_value, bool)
+                assert isinstance(cast_value, bool)
                 # Boolean casting should work correctly
                 expected_bool = original.lower() in ['true', '1', 'yes', 'y']
-                self.assertEqual(expected_bool, cast_value)
+                assert expected_bool == cast_value
         
         # Test date casting
         result = connection.execute(text(
@@ -571,9 +545,9 @@ class TestProfilerComprehensive(unittest.TestCase):
             original, cast_value = row
             if original and cast_value is not None:
                 # SQLite returns dates as strings, but we can verify format
-                self.assertIsInstance(cast_value, str)
+                assert isinstance(cast_value, str)
                 # Should be in YYYY-MM-DD format
-                self.assertRegex(cast_value, r'^\d{4}-\d{2}-\d{2}$')
+                assert re.search(r'^\d{4}-\d{2}-\d{2}$', cast_value) is not None
         
         # Test text columns (should remain as text)
         result = connection.execute(text(
@@ -584,7 +558,7 @@ class TestProfilerComprehensive(unittest.TestCase):
         for row in rows:
             original, cast_value = row
             if original:
-                self.assertEqual(original, cast_value)
+                assert original == cast_value
 
     def test_profiler_empty_table(self):
         """Test profiling on an empty table."""
@@ -613,7 +587,7 @@ class TestProfilerComprehensive(unittest.TestCase):
             # Should not raise, but profiled_columns should be empty or TEXT
             profiler.profile(sample_size=10)
             for col in profiler.profiled_columns:
-                self.assertEqual(col.inferred_type, DataType.TEXT)
+                assert col.inferred_type == DataType.TEXT
         finally:
             # Clean up temporary database
             try:
@@ -651,15 +625,15 @@ class TestProfilerComprehensive(unittest.TestCase):
             profiler.profile(sample_size=10)
             
             # Check that we have the expected columns
-            self.assertEqual(len(profiler.profiled_columns), 2)
+            assert len(profiler.profiled_columns) == 2
             
             # Find the value column (which should be all nulls and infer as TEXT)
             value_col = next(col for col in profiler.profiled_columns if col.name == "value")
-            self.assertEqual(value_col.inferred_type, DataType.TEXT)
+            assert value_col.inferred_type == DataType.TEXT
             
             # The id column should be inferred as INTEGER since it contains numeric strings
             id_col = next(col for col in profiler.profiled_columns if col.name == "id")
-            self.assertEqual(id_col.inferred_type, DataType.INTEGER)
+            assert id_col.inferred_type == DataType.INTEGER
         finally:
             # Clean up temporary database
             try:
@@ -702,15 +676,15 @@ class TestProfilerComprehensive(unittest.TestCase):
             profiler.profile(sample_size=10)
             
             # Check that we have the expected columns
-            self.assertEqual(len(profiler.profiled_columns), 2)
+            assert len(profiler.profiled_columns) == 2
             
             # The value column should be inferred as TEXT since it contains mixed types
             value_col = next(col for col in profiler.profiled_columns if col.name == "value")
-            self.assertEqual(value_col.inferred_type, DataType.TEXT)
+            assert value_col.inferred_type == DataType.TEXT
             
             # The id column should be inferred as INTEGER since it contains numeric strings
             id_col = next(col for col in profiler.profiled_columns if col.name == "id")
-            self.assertEqual(id_col.inferred_type, DataType.INTEGER)
+            assert id_col.inferred_type == DataType.INTEGER
         finally:
             # Clean up temporary database
             try:
@@ -720,7 +694,7 @@ class TestProfilerComprehensive(unittest.TestCase):
 
     def test_profiler_db_connection_error(self):
         """Test profiler error on DB connection failure."""
-        with self.assertRaises(DatabaseError):
+        with pytest.raises(DatabaseError):
             DbSource(
                 db_url="sqlite:///nonexistent.db",
                 db_schema=None,
@@ -728,12 +702,12 @@ class TestProfilerComprehensive(unittest.TestCase):
             )
 
 
-class TestProfilerEdgeCases(unittest.TestCase):
+class TestProfilerEdgeCases():
     """Test edge cases and error conditions for Profiler."""
 
     def test_profiler_with_none_data_lake(self):
         """Test profiler initialization with None data lake."""
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             Profiler(data_lake=None)
 
     def test_profiler_reprofile_same_data(self):
@@ -764,7 +738,7 @@ class TestProfilerEdgeCases(unittest.TestCase):
             second_results = {col.name: col.inferred_type for col in profiler.profiled_columns}
             
             # Results should be identical
-            self.assertEqual(first_results, second_results)
+            assert first_results == second_results
             
         finally:
             # Robust cleanup with exception handling
@@ -803,7 +777,7 @@ class TestProfilerEdgeCases(unittest.TestCase):
             profiler.profile(sample_size=100)  # More than 5 rows
             
             # Should still work and profile all available data
-            self.assertGreater(len(profiler.profiled_columns), 0)
+            assert len(profiler.profiled_columns) > 0
             
         finally:
             # Robust cleanup with exception handling
@@ -856,10 +830,10 @@ class TestProfilerEdgeCases(unittest.TestCase):
             ]
             
             for total_rows, expected_sample in test_cases_small:
-                with self.subTest(total_rows=total_rows):
-                    sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
-                    self.assertEqual(sample_size, Profiler.calculate_adaptive_sample_size(total_rows=total_rows),
-                                   f"Expected {Profiler.calculate_adaptive_sample_size(total_rows=total_rows)} for {total_rows} rows, got {sample_size}")
+                # unittest.subTest removed; run assertions directly under pytest
+                sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
+                expected = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
+                assert sample_size == expected, f"Expected {expected} for {total_rows} rows, got {sample_size}"
             
             # Test datasets 10K-25K rows (75% sample)
             test_cases_75 = [
@@ -869,10 +843,10 @@ class TestProfilerEdgeCases(unittest.TestCase):
                 (24999, int(24999 * 0.75)),
             ]
             for total_rows, expected_sample in test_cases_75:
-                with self.subTest(total_rows=total_rows, pct_75=True):
-                    sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
-                    self.assertEqual(sample_size, Profiler.calculate_adaptive_sample_size(total_rows=total_rows),
-                                   f"Expected {Profiler.calculate_adaptive_sample_size(total_rows=total_rows)} for {total_rows} rows, got {sample_size}")
+                # unittest.subTest removed; run assertions directly under pytest
+                sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
+                expected = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
+                assert sample_size == expected, f"Expected {expected} for {total_rows} rows, got {sample_size}"
             
             # Test datasets 25K-50K rows (50% sample)
             test_cases_50 = [
@@ -882,10 +856,10 @@ class TestProfilerEdgeCases(unittest.TestCase):
                 (49999, int(49999 * 0.5)),
             ]
             for total_rows, expected_sample in test_cases_50:
-                with self.subTest(total_rows=total_rows, pct_50=True):
-                    sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
-                    self.assertEqual(sample_size, Profiler.calculate_adaptive_sample_size(total_rows=total_rows),
-                                   f"Expected {Profiler.calculate_adaptive_sample_size(total_rows=total_rows)} for {total_rows} rows, got {sample_size}")
+                # unittest.subTest removed; run assertions directly under pytest
+                sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
+                expected = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
+                assert sample_size == expected, f"Expected {expected} for {total_rows} rows, got {sample_size}"
             
             # Test datasets 50K-100K rows (25% sample)
             test_cases_25 = [
@@ -895,10 +869,10 @@ class TestProfilerEdgeCases(unittest.TestCase):
                 (99999, int(99999 * 0.25)),
             ]
             for total_rows, expected_sample in test_cases_25:
-                with self.subTest(total_rows=total_rows, pct_25=True):
-                    sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
-                    self.assertEqual(sample_size, Profiler.calculate_adaptive_sample_size(total_rows=total_rows),
-                                   f"Expected {Profiler.calculate_adaptive_sample_size(total_rows=total_rows)} for {total_rows} rows, got {sample_size}")
+                # unittest.subTest removed; run assertions directly under pytest
+                sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
+                expected = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
+                assert sample_size == expected, f"Expected {expected} for {total_rows} rows, got {sample_size}"
             
             # Test datasets 100K-500K rows (15% sample)
             test_cases_15 = [
@@ -908,10 +882,10 @@ class TestProfilerEdgeCases(unittest.TestCase):
                 (499999, int(499999 * 0.15)),
             ]
             for total_rows, expected_sample in test_cases_15:
-                with self.subTest(total_rows=total_rows, pct_15=True):
-                    sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
-                    self.assertEqual(sample_size, Profiler.calculate_adaptive_sample_size(total_rows=total_rows),
-                                   f"Expected {Profiler.calculate_adaptive_sample_size(total_rows=total_rows)} for {total_rows} rows, got {sample_size}")
+                # unittest.subTest removed; run assertions directly under pytest
+                sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
+                expected = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
+                assert sample_size == expected, f"Expected {expected} for {total_rows} rows, got {sample_size}"
             
             # Test datasets > 500K rows (10% sample)
             test_cases_10 = [
@@ -921,10 +895,10 @@ class TestProfilerEdgeCases(unittest.TestCase):
                 (10000000, 1000000),
             ]
             for total_rows, expected_sample in test_cases_10:
-                with self.subTest(total_rows=total_rows, pct_10=True):
-                    sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
-                    self.assertEqual(sample_size, Profiler.calculate_adaptive_sample_size(total_rows=total_rows),
-                                   f"Expected {Profiler.calculate_adaptive_sample_size(total_rows=total_rows)} for {total_rows} rows, got {sample_size}")
+                # unittest.subTest removed; run assertions directly under pytest
+                sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
+                expected = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
+                assert sample_size == expected, f"Expected {expected} for {total_rows} rows, got {sample_size}"
             
             # Test boundary conditions and edge cases
             boundary_tests = [
@@ -950,31 +924,28 @@ class TestProfilerEdgeCases(unittest.TestCase):
                 (500001, int(500001 * 0.10)), # One row after 500K boundary
             ]
             for total_rows, expected_sample in boundary_tests:
-                with self.subTest(total_rows=total_rows, boundary_test=True):
-                    sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
-                    self.assertEqual(sample_size, Profiler.calculate_adaptive_sample_size(total_rows=total_rows),
-                                   f"Expected {Profiler.calculate_adaptive_sample_size(total_rows=total_rows)} for {total_rows} rows, got {sample_size}")
+                # unittest.subTest removed; run assertions directly under pytest
+                sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
+                expected = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
+                assert sample_size == expected, f"Expected {expected} for {total_rows} rows, got {sample_size}"
             
             # Test that sample size never exceeds total rows
             for total_rows in [1000, 25000, 50000, 100000, 500000, 1000000]:
-                with self.subTest(total_rows=total_rows, max_check=True):
-                    sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
-                    self.assertLessEqual(sample_size, total_rows,
-                                       f"Sample size {sample_size} should not exceed total rows {total_rows}")
+                # unittest.subTest removed; run assertions directly under pytest
+                sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
+                assert sample_size <= total_rows, f"Sample size {sample_size} should not exceed total rows {total_rows}"
             
             # Test that sample size is always non-negative
             for total_rows in [0, 1, 1000, 25000, 50000, 100000, 500000, 1000000]:
-                with self.subTest(total_rows=total_rows, non_negative_check=True):
-                    sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
-                    self.assertGreaterEqual(sample_size, 0,
-                                          f"Sample size {sample_size} should be non-negative for {total_rows} rows")
+                # unittest.subTest removed; run assertions directly under pytest
+                sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
+                assert sample_size >= 0, f"Sample size {sample_size} should be non-negative for {total_rows} rows"
             
             # Test that sample size is always an integer
             for total_rows in [1000, 25000, 50000, 100000, 500000, 1000000]:
-                with self.subTest(total_rows=total_rows, integer_check=True):
-                    sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
-                    self.assertIsInstance(sample_size, int,
-                                        f"Sample size {sample_size} should be an integer for {total_rows} rows")
+                # unittest.subTest removed; run assertions directly under pytest
+                sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
+                assert isinstance(sample_size, int), f"Sample size {sample_size} should be an integer for {total_rows} rows"
             
         finally:
             # Robust cleanup with exception handling
@@ -1010,15 +981,15 @@ class TestProfilerEdgeCases(unittest.TestCase):
             profiler = Profiler(data_lake=data_lake)
             
             # Test properties before profiling
-            self.assertEqual(profiler.data_lake, data_lake)
-            self.assertEqual(len(profiler.profiled_columns), 2)  # Always has columns with default TEXT type
+            assert profiler.data_lake == data_lake
+            assert len(profiler.profiled_columns) == 2  # Always has columns with default TEXT type
             
             # Profile the data (reduced sample size for performance)
             profiler.profile(sample_size=5)
             
             # Test properties after profiling
-            self.assertEqual(profiler.data_lake, data_lake)
-            self.assertGreater(len(profiler.profiled_columns), 0)
+            assert profiler.data_lake == data_lake
+            assert len(profiler.profiled_columns) > 0
             
         finally:
             # Robust cleanup with exception handling
@@ -1036,17 +1007,17 @@ class TestProfilerEdgeCases(unittest.TestCase):
                 pass  # Directory may not exist or be locked
 
 
-class TestProfilerTypeCasting(unittest.TestCase):
+class TestProfilerTypeCasting():
     """Test cases for Profiler type casting functionality."""
 
-    def setUp(self) -> None:
-        """Set up test fixtures."""
+    def setup_method(self) -> None:
+        """Set up test fixtures for pytest."""
         # Create a temporary directory for data lake
         self.temp_dir = tempfile.mkdtemp()
         self.data_lake_path = Path(self.temp_dir)
 
-    def tearDown(self) -> None:
-        """Clean up test fixtures."""
+    def teardown_method(self) -> None:
+        """Clean up test fixtures for pytest."""
         try:
             shutil.rmtree(self.temp_dir)
         except OSError:
@@ -1067,11 +1038,11 @@ class TestProfilerTypeCasting(unittest.TestCase):
             )
             profiler = Profiler(data_lake=data_lake)
 
-            # Test None input for all data types
+            # Test None input for all data types -> expect None
             for data_type in [DataType.INTEGER, DataType.FLOAT, DataType.BOOLEAN,
-                            DataType.DATE, DataType.TIME, DataType.DATETIME, DataType.TEXT]:
+                              DataType.DATE, DataType.TIME, DataType.DATETIME, DataType.TEXT]:
                 result = profiler._cast_value(None, target_type=data_type)
-                self.assertIsNone(result, f"None input should return None for {data_type}")
+                assert result is None
 
         finally:
             try:
@@ -1094,11 +1065,11 @@ class TestProfilerTypeCasting(unittest.TestCase):
             )
             profiler = Profiler(data_lake=data_lake)
 
-            # Test empty string input for all data types
+            # Test empty string input for all data types -> expect None
             for data_type in [DataType.INTEGER, DataType.FLOAT, DataType.BOOLEAN,
-                            DataType.DATE, DataType.TIME, DataType.DATETIME, DataType.TEXT]:
+                              DataType.DATE, DataType.TIME, DataType.DATETIME, DataType.TEXT]:
                 result = profiler._cast_value("", target_type=data_type)
-                self.assertIsNone(result, f"Empty string should return None for {data_type}")
+                assert result is None
 
         finally:
             try:
@@ -1132,7 +1103,7 @@ class TestProfilerTypeCasting(unittest.TestCase):
 
             for input_str, expected in valid_integers:
                 result = profiler._cast_value(input_str, target_type=DataType.INTEGER)
-                self.assertEqual(result, expected, f"Failed to convert '{input_str}' to {expected}")
+                assert result == expected, f"Failed to convert '{input_str}' to {expected}"
 
             # Test invalid integer conversions
             invalid_integers = [
@@ -1145,7 +1116,7 @@ class TestProfilerTypeCasting(unittest.TestCase):
 
             for input_str in invalid_integers:
                 result = profiler._cast_value(input_str, target_type=DataType.INTEGER)
-                self.assertIsNone(result, f"Invalid integer '{input_str}' should return None")
+                assert result is None
 
         finally:
             try:
@@ -1175,7 +1146,7 @@ class TestProfilerTypeCasting(unittest.TestCase):
 
             for input_str in true_values:
                 result = profiler._cast_value(input_str, target_type=DataType.BOOLEAN)
-                self.assertTrue(result, f"'{input_str}' should convert to True")
+                assert result, f"'{input_str}' should convert to True"
 
             # Test false values (only lowercase versions are accepted)
             false_values = [
@@ -1184,7 +1155,7 @@ class TestProfilerTypeCasting(unittest.TestCase):
 
             for input_str in false_values:
                 result = profiler._cast_value(input_str, target_type=DataType.BOOLEAN)
-                self.assertFalse(result, f"'{input_str}' should convert to False")
+                assert not result, f"'{input_str}' should convert to False"
 
             # Test uppercase/mixed case values (some are accepted by String.to_bool)
             mixed_case_cases = [
@@ -1204,14 +1175,10 @@ class TestProfilerTypeCasting(unittest.TestCase):
 
             for input_str, expected in mixed_case_cases:
                 result = profiler._cast_value(input_str, target_type=DataType.BOOLEAN)
-                self.assertEqual(result, expected, f"'{input_str}' should convert to {expected}")
+                assert result == expected, f"'{input_str}' should convert to {expected}"
 
         finally:
             try:
                 os.remove(temp_path)
             except Exception:
                 pass
-
-
-if __name__ == '__main__':
-    unittest.main() 

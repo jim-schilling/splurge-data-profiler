@@ -7,7 +7,6 @@ validating its initialization, properties, and core functionality.
 
 import os
 import tempfile
-import unittest
 
 from sqlalchemy import create_engine, MetaData, Table as SATable, Column as SAColumn, String
 
@@ -15,10 +14,10 @@ from splurge_data_profiler.source import DbSource
 from splurge_data_profiler.exceptions import DatabaseError
 
 
-class TestDbSource(unittest.TestCase):
+class TestDbSource:
     """Test cases for DbSource class."""
 
-    def setUp(self) -> None:
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         # Create a temporary SQLite database file
         self.db_fd, self.db_path = tempfile.mkstemp(suffix=".db")
@@ -41,7 +40,7 @@ class TestDbSource(unittest.TestCase):
         )
         metadata.create_all(self.engine)
 
-    def tearDown(self) -> None:
+    def teardown_method(self) -> None:
         """Clean up test fixtures."""
         # Ensure engine is disposed before removing file
         try:
@@ -57,12 +56,15 @@ class TestDbSource(unittest.TestCase):
 
     def test_db_source_initialization_connection_error(self) -> None:
         """Test DbSource initialization with invalid database URL."""
-        with self.assertRaises(DatabaseError):
+        try:
             DbSource(
                 db_url="sqlite:///nonexistent.db",
                 db_schema=None,
                 db_table="nonexistent_table"
             )
+            assert False, "Expected DatabaseError was not raised"
+        except DatabaseError:
+            pass
 
     def test_db_source_properties(self) -> None:
         """Test DbSource properties."""
@@ -72,12 +74,12 @@ class TestDbSource(unittest.TestCase):
             db_table=self.db_table
         )
 
-        self.assertEqual(source.db_url, self.db_url)
-        self.assertEqual(source.db_schema, self.db_schema)
-        self.assertEqual(source.db_table, self.db_table)
-        self.assertEqual(len(source.columns), 2)
-        self.assertEqual(source.columns[0].name, "id")
-        self.assertEqual(source.columns[1].name, "name")
+        assert source.db_url == self.db_url
+        assert source.db_schema == self.db_schema
+        assert source.db_table == self.db_table
+        assert len(source.columns) == 2
+        assert source.columns[0].name == "id"
+        assert source.columns[1].name == "name"
 
     def test_db_source_string_representation(self) -> None:
         """Test DbSource string representation."""
@@ -104,7 +106,7 @@ class TestDbSource(unittest.TestCase):
 
             # Test the new DbSource __str__ method
             expected_str = f"DbSource(db_url={db_url}, schema=None, table=test_table, columns=1)"
-            self.assertEqual(str(source), expected_str)
+            assert str(source) == expected_str
 
         finally:
             # Ensure engine is disposed before removing file
@@ -139,8 +141,8 @@ class TestDbSource(unittest.TestCase):
             db_table="different_table"
         )
 
-        self.assertEqual(source1, source2)
-        self.assertNotEqual(source1, source3)
+        assert source1 == source2
+        assert source1 != source3
 
     def test_db_source_equality_different_type(self) -> None:
         """Test DbSource equality with different type."""
@@ -151,7 +153,7 @@ class TestDbSource(unittest.TestCase):
         )
         other = "not a db source"
 
-        self.assertNotEqual(source, other)
+        assert source != other
 
     def test_db_source_repr_representation(self) -> None:
         """Test DbSource repr representation."""
@@ -163,11 +165,9 @@ class TestDbSource(unittest.TestCase):
 
         # Test that repr shows detailed information
         repr_str = repr(source)
-        self.assertIn("DbSource", repr_str)
-        self.assertIn(self.db_url, repr_str)
-        self.assertIn(self.db_table, repr_str)
-        self.assertIn("columns=", repr_str)
+        assert "DbSource" in repr_str
+        assert self.db_url in repr_str
+        assert self.db_table in repr_str
+        assert "columns=" in repr_str
 
 
-if __name__ == "__main__":
-    unittest.main()

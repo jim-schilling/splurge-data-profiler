@@ -7,14 +7,13 @@ using mocks for dependencies where appropriate.
 
 import os
 import tempfile
-import unittest
 from pathlib import Path
 
 from splurge_data_profiler.source import Column, Source, DsvSource, DbSource
 from splurge_data_profiler.exceptions import DatabaseError
 
 
-class TestSource(unittest.TestCase):
+class TestSource:
     """Unit tests for Source abstract base class."""
 
     def test_source_initialization_defaults(self) -> None:
@@ -23,7 +22,7 @@ class TestSource(unittest.TestCase):
             pass
         
         source = TestSource()
-        self.assertEqual(len(source.columns), 0)
+        assert len(source.columns) == 0
 
     def test_source_initialization_custom_values(self) -> None:
         """Test Source initialization with custom values."""
@@ -32,9 +31,9 @@ class TestSource(unittest.TestCase):
         
         columns = [Column("col1"), Column("col2")]
         source = TestSource(columns=columns)
-        self.assertEqual(len(source.columns), 2)
-        self.assertEqual(source.columns[0].name, "col1")
-        self.assertEqual(source.columns[1].name, "col2")
+        assert len(source.columns) == 2
+        assert source.columns[0].name == "col1"
+        assert source.columns[1].name == "col2"
 
     def test_source_columns_property(self) -> None:
         """Test Source columns property."""
@@ -45,11 +44,11 @@ class TestSource(unittest.TestCase):
         source = TestSource(columns=columns)
         
         # Test that columns property returns the correct list
-        self.assertEqual(source.columns, columns)
+        assert source.columns == columns
         
         # Test that modifying the returned list doesn't affect the source
         source.columns.append(Column("col3"))
-        self.assertEqual(len(source.columns), 2)
+        assert len(source.columns) == 2
 
     def test_source_iteration(self) -> None:
         """Test Source iteration."""
@@ -61,7 +60,7 @@ class TestSource(unittest.TestCase):
         
         # Test iteration
         iterated_columns = list(source)
-        self.assertEqual(iterated_columns, columns)
+        assert iterated_columns == columns
 
     def test_source_length(self) -> None:
         """Test Source length."""
@@ -71,7 +70,7 @@ class TestSource(unittest.TestCase):
         columns = [Column("col1"), Column("col2"), Column("col3")]
         source = TestSource(columns=columns)
         
-        self.assertEqual(len(source), 3)
+        assert len(source) == 3
 
     def test_source_indexing(self) -> None:
         """Test Source indexing."""
@@ -81,8 +80,8 @@ class TestSource(unittest.TestCase):
         columns = [Column("col1"), Column("col2")]
         source = TestSource(columns=columns)
         
-        self.assertEqual(source[0], columns[0])
-        self.assertEqual(source[1], columns[1])
+        assert source[0] == columns[0]
+        assert source[1] == columns[1]
 
     def test_source_equality(self) -> None:
         """Test Source equality."""
@@ -97,8 +96,8 @@ class TestSource(unittest.TestCase):
         source2 = TestSource(columns=columns2)
         source3 = TestSource(columns=columns3)
         
-        self.assertEqual(source1, source2)
-        self.assertNotEqual(source1, source3)
+        assert source1 == source2
+        assert source1 != source3
 
     def test_source_equality_different_type(self) -> None:
         """Test Source equality with different type."""
@@ -108,7 +107,7 @@ class TestSource(unittest.TestCase):
         source = TestSource()
         other = "not a source"
         
-        self.assertNotEqual(source, other)
+        assert source != other
 
     def test_source_string_representation(self) -> None:
         """Test Source string representation."""
@@ -119,10 +118,10 @@ class TestSource(unittest.TestCase):
         source = TestSource(columns=columns)
         
         expected_str = f"Source(columns={columns})"
-        self.assertEqual(str(source), expected_str)
+        assert str(source) == expected_str
 
 
-class TestDsvSource(unittest.TestCase):
+class TestDsvSource:
     """Unit tests for DsvSource class."""
 
     def test_dsv_source_initialization_defaults(self) -> None:
@@ -138,18 +137,18 @@ class TestDsvSource(unittest.TestCase):
             
             source = DsvSource(test_path)
             
-            self.assertEqual(source.file_path, test_path)
-            self.assertEqual(source.delimiter, ',')
-            self.assertEqual(source.strip, True)
-            self.assertEqual(source.bookend, '"')
-            self.assertEqual(source.bookend_strip, True)
-            self.assertEqual(source.encoding, 'utf-8')
-            self.assertEqual(source.skip_header_rows, 0)
-            self.assertEqual(source.skip_footer_rows, 0)
-            self.assertEqual(source.header_rows, 1)
-            self.assertEqual(source.skip_empty_rows, True)
-            self.assertEqual(len(source.columns), 2)
-            self.assertEqual([col.name for col in source.columns], ["col1", "col2"])
+            assert source.file_path == test_path
+            assert source.delimiter == ','
+            assert source.strip is True
+            assert source.bookend == '"'
+            assert source.bookend_strip is True
+            assert source.encoding == 'utf-8'
+            assert source.skip_header_rows == 0
+            assert source.skip_footer_rows == 0
+            assert source.header_rows == 1
+            assert source.skip_empty_rows is True
+            assert len(source.columns) == 2
+            assert [col.name for col in source.columns] == ["col1", "col2"]
         finally:
             try:
                 os.remove(temp_path)
@@ -180,20 +179,20 @@ class TestDsvSource(unittest.TestCase):
                 skip_empty_rows=False
             )
             
-            self.assertEqual(source.file_path, test_path)
-            self.assertEqual(source.delimiter, '|')
-            self.assertEqual(source.strip, False)
-            self.assertEqual(source.bookend, "'")
-            self.assertEqual(source.bookend_strip, False)
-            self.assertEqual(source.encoding, 'utf-8')
-            self.assertEqual(source.skip_header_rows, 2)
-            self.assertEqual(source.skip_footer_rows, 1)
-            self.assertEqual(source.header_rows, 1)
-            self.assertEqual(source.skip_empty_rows, False)
+            assert source.file_path == test_path
+            assert source.delimiter == '|'
+            assert source.strip is False
+            assert source.bookend == "'"
+            assert source.bookend_strip is False
+            assert source.encoding == 'utf-8'
+            assert source.skip_header_rows == 2
+            assert source.skip_footer_rows == 1
+            assert source.header_rows == 1
+            assert source.skip_empty_rows is False
             # With pipe delimiter, the file content doesn't match the delimiter
             # So we get different column parsing - the header row is parsed as a single column
-            self.assertEqual(len(source.columns), 1)
-            self.assertEqual([col.name for col in source.columns], ["col1,col2"])
+            assert len(source.columns) == 1
+            assert [col.name for col in source.columns] == ["col1,col2"]
         finally:
             try:
                 os.remove(temp_path)
@@ -220,7 +219,7 @@ class TestDsvSource(unittest.TestCase):
             source2 = DsvSource(test_path2)
             
             # They should not be equal because they have different file paths
-            self.assertNotEqual(source1, source2)
+            assert source1 != source2
         finally:
             try:
                 os.remove(temp_path1)
@@ -242,7 +241,7 @@ class TestDsvSource(unittest.TestCase):
             source = DsvSource(test_path)
             other = "not a dsv source"
             
-            self.assertNotEqual(source, other)
+            assert source != other
         finally:
             try:
                 os.remove(temp_path)
@@ -264,10 +263,10 @@ class TestDsvSource(unittest.TestCase):
             
             # Check that string representation contains expected elements
             str_repr = str(source)
-            self.assertIn("DsvSource", str_repr)
-            self.assertIn("file_path=", str_repr)
-            self.assertIn("delimiter=", str_repr)
-            self.assertIn("columns=", str_repr)
+            assert "DsvSource" in str_repr
+            assert "file_path=" in str_repr
+            assert "delimiter=" in str_repr
+            assert "columns=" in str_repr
         finally:
             try:
                 os.remove(temp_path)
@@ -275,38 +274,45 @@ class TestDsvSource(unittest.TestCase):
                 pass
 
 
-class TestDbSource(unittest.TestCase):
+class TestDbSource:
     """Unit tests for DbSource class."""
 
     def test_db_source_initialization_connection_error(self) -> None:
         """Test DbSource initialization with connection error."""
-        with self.assertRaises(Exception):
+        try:
             DbSource(
                 db_url="invalid://url",
                 db_schema="test_schema",
                 db_table="test_table"
             )
+            assert False, "Expected exception was not raised"
+        except Exception:
+            pass
 
     def test_db_source_properties(self) -> None:
         """Test DbSource properties."""
         # This test requires a real database connection, so we'll test the error case
-        with self.assertRaises(DatabaseError):
+        try:
             DbSource(
                 db_url="invalid://url",
                 db_schema="test_schema",
                 db_table="test_table"
             )
+            assert False, "Expected DatabaseError was not raised"
+        except DatabaseError:
+            pass
 
     def test_db_source_string_representation(self) -> None:
         """Test DbSource string representation."""
         # This test requires a real database connection, so we'll test the error case
-        with self.assertRaises(DatabaseError):
+        try:
             DbSource(
                 db_url="invalid://url",
                 db_schema="test_schema",
                 db_table="test_table"
             )
+            assert False, "Expected DatabaseError was not raised"
+        except DatabaseError:
+            pass
 
-
-if __name__ == '__main__':
-    unittest.main() 
+ 

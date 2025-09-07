@@ -1,9 +1,7 @@
-import unittest
-
 from splurge_data_profiler.source import DataType
 
 
-class TestDataType(unittest.TestCase):
+class TestDataType:
     """Test cases for DataType enum."""
 
     def test_data_type_values(self) -> None:
@@ -20,14 +18,10 @@ class TestDataType(unittest.TestCase):
 
         for enum_name, expected_value in expected_values.items():
             enum_member = getattr(DataType, enum_name)
-            self.assertEqual(enum_member.value, expected_value)
+            assert enum_member.value == expected_value
 
     def test_data_type_membership(self) -> None:
         """Test that DataType enum contains expected members."""
         expected_members = {"BOOLEAN", "DATE", "DATETIME", "FLOAT", "INTEGER", "TEXT", "TIME"}
         actual_members = {member.name for member in DataType}
-        self.assertEqual(actual_members, expected_members)
-
-
-if __name__ == '__main__':
-    unittest.main()
+        assert actual_members == expected_members

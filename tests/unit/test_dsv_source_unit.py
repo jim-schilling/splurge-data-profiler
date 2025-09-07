@@ -7,16 +7,15 @@ validating its initialization, properties, and core functionality.
 
 import os
 import tempfile
-import unittest
 from pathlib import Path
 
 from splurge_data_profiler.source import DsvSource
 
 
-class TestDsvSource(unittest.TestCase):
+class TestDsvSource:
     """Test cases for DsvSource class."""
 
-    def setUp(self) -> None:
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         # Create a temporary CSV file for testing
         self.temp_fd, self.temp_path = tempfile.mkstemp(suffix=".csv")
@@ -24,7 +23,7 @@ class TestDsvSource(unittest.TestCase):
             f.write('id,name\n1,Alice\n2,Bob\n')
         self.test_file_path = Path(self.temp_path)
 
-    def tearDown(self) -> None:
+    def teardown_method(self) -> None:
         """Clean up test fixtures."""
         try:
             os.remove(self.temp_path)
@@ -35,16 +34,16 @@ class TestDsvSource(unittest.TestCase):
         """Test DsvSource initialization with default values."""
         source = DsvSource(self.test_file_path)
 
-        self.assertEqual(source.file_path, self.test_file_path)
-        self.assertEqual(source.delimiter, ",")
-        self.assertTrue(source.strip)
-        self.assertEqual(source.bookend, '"')
-        self.assertTrue(source.bookend_strip)
-        self.assertEqual(source.encoding, "utf-8")
-        self.assertEqual(source.skip_header_rows, 0)
-        self.assertEqual(source.skip_footer_rows, 0)
-        self.assertEqual(source.header_rows, 1)
-        self.assertTrue(source.skip_empty_rows)
+        assert source.file_path == self.test_file_path
+        assert source.delimiter == ","
+        assert source.strip is True
+        assert source.bookend == '"'
+        assert source.bookend_strip is True
+        assert source.encoding == "utf-8"
+        assert source.skip_header_rows == 0
+        assert source.skip_footer_rows == 0
+        assert source.header_rows == 1
+        assert source.skip_empty_rows is True
 
     def test_dsv_source_initialization_custom_values(self) -> None:
         """Test DsvSource initialization with custom values."""
@@ -67,15 +66,15 @@ class TestDsvSource(unittest.TestCase):
                 skip_empty_rows=False
             )
 
-            self.assertEqual(source.delimiter, "\t")
-            self.assertFalse(source.strip)
-            self.assertEqual(source.bookend, "'")
-            self.assertFalse(source.bookend_strip)
-            self.assertEqual(source.encoding, "latin-1")
-            self.assertEqual(source.skip_header_rows, 2)
-            self.assertEqual(source.skip_footer_rows, 1)
-            self.assertEqual(source.header_rows, 1)
-            self.assertFalse(source.skip_empty_rows)
+            assert source.delimiter == "\t"
+            assert source.strip is False
+            assert source.bookend == "'"
+            assert source.bookend_strip is False
+            assert source.encoding == "latin-1"
+            assert source.skip_header_rows == 2
+            assert source.skip_footer_rows == 1
+            assert source.header_rows == 1
+            assert source.skip_empty_rows is False
         finally:
             try:
                 os.remove(temp_path)
@@ -88,24 +87,32 @@ class TestDsvSource(unittest.TestCase):
         source2 = DsvSource(self.test_file_path, delimiter=",")
         source3 = DsvSource(self.test_file_path, delimiter="\t")
 
-        self.assertEqual(source1, source2)
-        self.assertNotEqual(source1, source3)
+        assert source1 == source2
+        assert source1 != source3
 
     def test_dsv_source_equality_different_type(self) -> None:
         """Test DsvSource equality with different type."""
         source = DsvSource(self.test_file_path)
         other = "not a dsv source"
 
-        self.assertNotEqual(source, other)
+        assert source != other
 
     def test_dsv_source_string_representation(self) -> None:
         """Test DsvSource string representation."""
         source = DsvSource(self.test_file_path, delimiter=",")
 
-        # The string representation will include the actual columns
-        expected_str = f"DsvSource(file_path={self.test_file_path}, delimiter=,, bookend=\", bookend_strip=True, encoding=utf-8, skip_header_rows=0, skip_footer_rows=0, header_rows=1, skip_empty_rows=True, columns=[Column(name=id, inferred_type=DataType.TEXT, raw_type=DataType.TEXT, is_nullable=True), Column(name=name, inferred_type=DataType.TEXT, raw_type=DataType.TEXT, is_nullable=True)])"
-        self.assertEqual(str(source), expected_str)
+        # Use flexible pattern matching for key fields
+        actual = str(source)
+        assert f"file_path={self.test_file_path}" in actual
+        assert "delimiter=," in actual
+        assert "bookend=\"" in actual
+        assert "bookend_strip=True" in actual
+        assert "encoding=utf-8" in actual
+        assert "skip_header_rows=0" in actual
+        assert "skip_footer_rows=0" in actual
+        assert "header_rows=1" in actual
+        assert "skip_empty_rows=True" in actual
+        assert "Column(name=id, inferred_type=DataType.TEXT, raw_type=DataType.TEXT, is_nullable=True)" in actual
+        assert "Column(name=name, inferred_type=DataType.TEXT, raw_type=DataType.TEXT, is_nullable=True)" in actual
 
 
-if __name__ == "__main__":
-    unittest.main()

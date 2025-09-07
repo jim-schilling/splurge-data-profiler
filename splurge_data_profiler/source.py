@@ -1,7 +1,7 @@
 from abc import ABC
 from enum import Enum
 from pathlib import Path
-from typing import Any, Iterator, List, Optional, Union
+from typing import Any, Iterator
 
 from sqlalchemy import create_engine, inspect, MetaData, Table
 from sqlalchemy.exc import SQLAlchemyError
@@ -101,7 +101,7 @@ class Source(ABC):
     def __init__(
             self,
             *,
-            columns: Optional[List[Column]] = None
+            columns: list[Column] | None = None
     ) -> None:
         """
         Initialize a Source instance.
@@ -112,7 +112,7 @@ class Source(ABC):
         self._columns = columns or []
 
     @property
-    def columns(self) -> List[Column]:
+    def columns(self) -> list[Column]:
         """Get the list of column definitions."""
         return self._columns.copy()
     
@@ -142,7 +142,7 @@ class DsvSource(Source):
 
     def __init__(
             self,
-            file_path: Union[str, Path],
+            file_path: str | Path,
             *,
             delimiter: str = ",",
             strip: bool = True,
@@ -183,7 +183,7 @@ class DsvSource(Source):
         super().__init__(columns=self._initialize())
 
     @property
-    def file_path(self) -> Union[str, Path]:
+    def file_path(self) -> str | Path:
         """Get the file path."""
         return self._file_path
     
@@ -232,7 +232,7 @@ class DsvSource(Source):
         """Get whether to skip empty rows."""
         return self._skip_empty_rows
     
-    def _initialize(self) -> List[Column]:
+    def _initialize(self) -> list[Column]:
         """
         Initialize the header columns from the file.
         """
@@ -317,7 +317,7 @@ class DbSource(Source):
             self,
             *,
             db_url: str,
-            db_schema: Optional[str] = None,
+            db_schema: str | None = None,
             db_table: str
     ) -> None:
         """
@@ -339,7 +339,7 @@ class DbSource(Source):
         return self._db_url
 
     @property
-    def db_schema(self) -> Optional[str]:
+    def db_schema(self) -> str | None:
         """Get the database schema."""
         return self._db_schema
 
@@ -348,7 +348,7 @@ class DbSource(Source):
         """Get the database table name."""
         return self._db_table
 
-    def _initialize(self) -> List[Column]:
+    def _initialize(self) -> list[Column]:
         """
         Connect to the database and initialize column definitions.
 

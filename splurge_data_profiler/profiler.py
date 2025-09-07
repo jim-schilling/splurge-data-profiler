@@ -1,5 +1,5 @@
 import copy
-from typing import List, Optional, Any, Dict
+from typing import Any
 from dataclasses import dataclass
 
 from sqlalchemy import (
@@ -68,7 +68,7 @@ class Profiler:
     def profile(
             self,
             *,
-            sample_size: Optional[int] = None
+            sample_size: int | None = None
     ) -> None:
         """
         Profile the data lake by analyzing each column's data types.
@@ -90,11 +90,15 @@ class Profiler:
             
             # Calculate adaptive sample size if not provided
             if sample_size is None:
-                # Get total row count
+                # Get total row count. Use the underlying DbSource schema rather
+                # than any display schema provided by DataLake to avoid injecting
+                # non-existent schema names into SQL queries (e.g., "None").
                 with engine.connect() as connection:
                     table_name = self._data_lake.db_table
-                    if self._data_lake.db_schema:
-                        table_name = f"{self._data_lake.db_schema}.{table_name}"
+                    db_schema = self._data_lake.db_source.db_schema
+                    # Don't prefix schema for SQLite - SQLite doesn't use schemas
+                    if db_schema and 'sqlite' not in self._data_lake.db_url:
+                        table_name = f"{db_schema}.{table_name}"
                     result = connection.execute(text(f"SELECT COUNT(*) FROM {table_name}"))
                     total_rows = result.fetchone()[0]
                 
@@ -138,8 +142,10 @@ class Profiler:
         # Build the query to sample data from the column
         # Use random sampling to get diverse data for profiling
         table_name = self._data_lake.db_table
-        if self._data_lake.db_schema:
-            table_name = f"{self._data_lake.db_schema}.{table_name}"
+        db_schema = self._data_lake.db_source.db_schema
+        # Avoid schema prefix for SQLite
+        if db_schema and 'sqlite' not in self._data_lake.db_url:
+            table_name = f"{db_schema}.{table_name}"
         
         # Use ORDER BY RANDOM() for SQLite or RAND() for other databases
         if 'sqlite' in self._data_lake.db_url:
@@ -172,7 +178,7 @@ class Profiler:
     def _map_tools_datatype_to_source_datatype(
             self,
             tools_datatype: StDataType
-    ) -> Optional[DataType]:
+    ) -> DataType | None:
         """
         Map splurge_tools.type_helper.DataType to splurge_data_profiler.source.DataType.
         
@@ -198,7 +204,7 @@ class Profiler:
         return mapping.get(tools_datatype)
 
     @property
-    def profiled_columns(self) -> List[Column]:
+    def profiled_columns(self) -> list[Column]:
         """Get the profiled columns with updated inferred types."""
         return self._profiled_columns.copy()
     
@@ -339,8 +345,11 @@ class Profiler:
         """
         # Handle schema prefix if needed
         original_table_name = self._data_lake.db_table
-        if self._data_lake.db_schema:
-            original_table_name = f"{self._data_lake.db_schema}.{original_table_name}"
+        # Use the underlying DbSource schema for SQL to avoid using any
+        # display-only schema values that may be present on DataLake.
+        db_schema = self._data_lake.db_source.db_schema
+        if db_schema:
+            original_table_name = f"{db_schema}.{original_table_name}"
         
         # Build column list for SELECT
         original_columns = [col.name for col in self._profiled_columns]
@@ -460,7 +469,7 @@ class Profiler:
             engine: Engine,
             table: Table,
             *,
-            batch_data: List[Dict[str, Any]]
+            batch_data: list[dict[str, Any]]
     ) -> None:
         """
         Insert a batch of data into the specified table.

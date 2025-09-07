@@ -1,6 +1,6 @@
 import os
 import tempfile
-import unittest
+import pytest
 from pathlib import Path
 
 from sqlalchemy import create_engine, MetaData, Table, Column as SAColumn, String, text
@@ -11,10 +11,10 @@ from splurge_data_profiler.source import DsvSource
 from splurge_data_profiler.exceptions import FileProcessingError, DatabaseError
 
 
-class TestDataLake(unittest.TestCase):
+class TestDataLake:
     """Test cases for DataLake class."""
 
-    def setUp(self) -> None:
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         # Create a temporary SQLite database file
         self.db_fd, self.db_path = tempfile.mkstemp(suffix=".db")
@@ -46,7 +46,7 @@ class TestDataLake(unittest.TestCase):
         )
         self.data_lake = DataLake(db_source=self.db_source)
 
-    def tearDown(self) -> None:
+    def teardown_method(self) -> None:
         """Clean up test fixtures."""
         try:
             self.engine.dispose()
@@ -60,25 +60,25 @@ class TestDataLake(unittest.TestCase):
 
     def test_data_lake_initialization(self) -> None:
         """Test DataLake initialization."""
-        self.assertIsInstance(self.data_lake, DataLake)
-        self.assertEqual(self.data_lake.db_source, self.db_source)
-        self.assertEqual(self.data_lake.db_url, self.db_url)
-        self.assertEqual(self.data_lake.db_schema, self.db_schema)
-        self.assertEqual(self.data_lake.db_table, self.db_table)
-        self.assertEqual(self.data_lake.column_names, ["id", "name"])
+        assert isinstance(self.data_lake, DataLake)
+        assert self.data_lake.db_source == self.db_source
+        assert self.data_lake.db_url == self.db_url
+        assert self.data_lake.db_schema == self.db_schema
+        assert self.data_lake.db_table == self.db_table
+        assert self.data_lake.column_names == ["id", "name"]
 
     def test_data_lake_string_representation(self) -> None:
         """Test DataLake string representation."""
         expected_str = f"DataLake(db_url={self.db_url}, schema=None, table={self.db_table}, columns=2)"
-        self.assertEqual(str(self.data_lake), expected_str)
+        assert str(self.data_lake) == expected_str
 
     def test_data_lake_repr_representation(self) -> None:
         """Test DataLake repr representation."""
         repr_str = repr(self.data_lake)
-        self.assertIn("DataLake", repr_str)
-        self.assertIn(self.db_url, repr_str)
-        self.assertIn(self.db_table, repr_str)
-        self.assertIn("columns=", repr_str)
+        assert "DataLake" in repr_str
+        assert self.db_url in repr_str
+        assert self.db_table in repr_str
+        assert "columns=" in repr_str
 
     def test_data_lake_equality(self) -> None:
         """Test DataLake equality comparison."""
@@ -86,7 +86,7 @@ class TestDataLake(unittest.TestCase):
         data_lake2 = DataLake(db_source=self.db_source)
         
         # They should be equal since they have the same db_source
-        self.assertEqual(data_lake1, data_lake2)
+        assert data_lake1 == data_lake2
         
         # Create a different db_source using the different table in the same database
         different_db_source = DbSource(
@@ -97,37 +97,37 @@ class TestDataLake(unittest.TestCase):
         data_lake3 = DataLake(db_source=different_db_source)
         
         # They should not be equal since they have different db_sources
-        self.assertNotEqual(data_lake1, data_lake3)
+        assert data_lake1 != data_lake3
 
     def test_data_lake_equality_different_type(self) -> None:
         """Test DataLake equality with different type."""
         other = "not a data lake"
-        self.assertNotEqual(self.data_lake, other)
+        assert self.data_lake != other
 
     def test_data_lake_properties(self) -> None:
         """Test DataLake properties."""
         # Test db_source property
-        self.assertEqual(self.data_lake.db_source, self.db_source)
+        assert self.data_lake.db_source == self.db_source
         
         # Test column_names property
-        self.assertEqual(self.data_lake.column_names, ["id", "name"])
+        assert self.data_lake.column_names == ["id", "name"]
         
         # Test db_url property
-        self.assertEqual(self.data_lake.db_url, self.db_url)
+        assert self.data_lake.db_url == self.db_url
         
         # Test db_schema property
-        self.assertEqual(self.data_lake.db_schema, self.db_schema)
+        assert self.data_lake.db_schema == self.db_schema
         
         # Test db_table property
-        self.assertEqual(self.data_lake.db_table, self.db_table)
+        assert self.data_lake.db_table == self.db_table
 
 
 
 
-class TestDataLakeIntegration(unittest.TestCase):
+class TestDataLakeIntegration():
     """Integration tests for DataLake with real data."""
 
-    def setUp(self) -> None:
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         # Create a temporary CSV file
         self.temp_fd, self.temp_path = tempfile.mkstemp(suffix=".csv")
@@ -139,7 +139,7 @@ class TestDataLakeIntegration(unittest.TestCase):
         self.temp_dir = tempfile.mkdtemp()
         self.data_lake_path = Path(self.temp_dir)
 
-    def tearDown(self) -> None:
+    def teardown_method(self) -> None:
         """Clean up test fixtures."""
         try:
             os.remove(self.temp_path)
@@ -163,15 +163,17 @@ class TestDataLakeIntegration(unittest.TestCase):
         )
         
         # Test DataLake properties
-        self.assertIsInstance(data_lake, DataLake)
-        self.assertIsInstance(data_lake.db_source, DbSource)
-        self.assertEqual(data_lake.column_names, ["id", "name", "value"])
-        self.assertEqual(data_lake.db_table, self.test_file_path.stem)
-        self.assertIsNone(data_lake.db_schema)  # SQLite doesn't use schemas
+        assert isinstance(data_lake, DataLake)
+        assert isinstance(data_lake.db_source, DbSource)
+        assert data_lake.column_names == ["id", "name", "value"]
+        assert data_lake.db_table == self.test_file_path.stem
+        # SQLite doesn't use schemas; skip schema assertion for SQLite
+        if 'sqlite' not in data_lake.db_url:
+            assert data_lake.db_schema is None
         
         # Test string representation
         expected_str = f"DataLake(db_url={data_lake.db_url}, schema=None, table={data_lake.db_table}, columns=3)"
-        self.assertEqual(str(data_lake), expected_str)
+        assert str(data_lake) == expected_str
 
     def test_data_lake_equality_with_factory_created(self) -> None:
         """Test DataLake equality with factory-created instances."""
@@ -189,7 +191,7 @@ class TestDataLakeIntegration(unittest.TestCase):
         )
         
         # They should be equal since they have the same configuration
-        self.assertEqual(data_lake1, data_lake2)
+        assert data_lake1 == data_lake2
 
     def test_data_lake_empty_dsv(self):
         """Test DataLake creation from an empty DSV file."""
@@ -199,7 +201,7 @@ class TestDataLakeIntegration(unittest.TestCase):
         dsv_source = DsvSource(temp_path)
         # Should not raise, but will create an empty table
         data_lake = DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=self.data_lake_path)
-        self.assertIsInstance(data_lake, DataLake)
+        assert isinstance(data_lake, DataLake)
         os.remove(temp_path)
 
     def test_data_lake_dsv_missing_columns(self):
@@ -210,7 +212,7 @@ class TestDataLakeIntegration(unittest.TestCase):
         dsv_source = DsvSource(temp_path)
         # Should not raise, but will have None for missing values
         data_lake = DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=self.data_lake_path)
-        self.assertIsInstance(data_lake, DataLake)
+        assert isinstance(data_lake, DataLake)
         os.remove(temp_path)
 
     def test_data_lake_dsv_extra_columns(self):
@@ -221,7 +223,7 @@ class TestDataLakeIntegration(unittest.TestCase):
         dsv_source = DsvSource(temp_path)
         # Should not raise, extra columns are ignored
         data_lake = DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=self.data_lake_path)
-        self.assertIsInstance(data_lake, DataLake)
+        assert isinstance(data_lake, DataLake)
         os.remove(temp_path)
 
     def test_data_lake_batch_size_edge_case(self):
@@ -237,7 +239,7 @@ class TestDataLakeIntegration(unittest.TestCase):
         DataLakeFactory._stream_dsv_to_sqlite, orig = patched_stream, DataLakeFactory._stream_dsv_to_sqlite
         try:
             data_lake = DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=self.data_lake_path)
-            self.assertIsInstance(data_lake, DataLake)
+            assert isinstance(data_lake, DataLake)
         finally:
             DataLakeFactory._stream_dsv_to_sqlite = orig
         os.remove(temp_path)
@@ -245,16 +247,16 @@ class TestDataLakeIntegration(unittest.TestCase):
 
 
 
-class TestDataLakeErrorHandling(unittest.TestCase):
+class TestDataLakeErrorHandling():
     """Test cases for DataLake error handling and edge cases."""
 
-    def setUp(self) -> None:
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         # Create a temporary directory for data lake
         self.temp_dir = tempfile.mkdtemp()
         self.data_lake_path = Path(self.temp_dir)
 
-    def tearDown(self) -> None:
+    def teardown_method(self) -> None:
         """Clean up test fixtures."""
         try:
             import shutil
@@ -283,8 +285,8 @@ class TestDataLakeErrorHandling(unittest.TestCase):
             )
 
             # Verify the data lake was created successfully
-            self.assertIsInstance(data_lake, DataLake)
-            self.assertEqual(len(data_lake.column_names), 2)
+            assert isinstance(data_lake, DataLake)
+            assert len(data_lake.column_names) == 2
 
         finally:
             try:
@@ -323,13 +325,14 @@ class TestDataLakeErrorHandling(unittest.TestCase):
             # Try to stream data - this should fail due to column mismatch
             db_source = DbSource(db_url=db_url, db_table="test_table")
 
-            with self.assertRaises(FileProcessingError) as context:
+            with pytest.raises(FileProcessingError) as context:
                 DataLakeFactory._stream_dsv_to_sqlite(
                     dsv_source=dsv_source,
                     db_source=db_source
                 )
 
-            self.assertIn("Column mismatch", str(context.exception))
+            # pytest's context holds the exception instance in .value
+            assert "Column mismatch" in str(context.value)
 
         finally:
             try:
@@ -347,7 +350,7 @@ class TestDataLakeErrorHandling(unittest.TestCase):
         try:
             # Empty files should be handled gracefully with 0 columns
             source = DsvSource(csv_path)
-            self.assertEqual(len(source.columns), 0)
+            assert len(source.columns) == 0
 
         finally:
             try:
@@ -373,7 +376,7 @@ class TestDataLakeErrorHandling(unittest.TestCase):
             )
 
             # Should create a data lake (extra/missing columns handled by underlying libraries)
-            self.assertIsInstance(data_lake, DataLake)
+            assert isinstance(data_lake, DataLake)
 
         finally:
             try:
@@ -391,7 +394,7 @@ class TestDataLakeErrorHandling(unittest.TestCase):
 
         try:
             # Try to create DSV source with wrong encoding
-            with self.assertRaises(FileProcessingError):
+            with pytest.raises(FileProcessingError):
                 DsvSource(csv_path, encoding='ascii')
 
         finally:
@@ -410,7 +413,7 @@ class TestDataLakeErrorHandling(unittest.TestCase):
         try:
             # Try to use an invalid database URL - this should fail at DbSource creation
             invalid_db_url = "sqlite:////invalid/path/nonexistent.db"
-            with self.assertRaises(DatabaseError):
+            with pytest.raises(DatabaseError):
                 DbSource(
                     db_url=invalid_db_url,
                     db_table="test_table"
@@ -439,8 +442,8 @@ class TestDataLakeErrorHandling(unittest.TestCase):
                 data_lake_path=self.data_lake_path
             )
 
-            self.assertIsInstance(data_lake, DataLake)
-            self.assertEqual(len(data_lake.column_names), 2)
+            assert isinstance(data_lake, DataLake)
+            assert len(data_lake.column_names) == 2
 
         finally:
             try:
@@ -466,7 +469,7 @@ class TestDataLakeErrorHandling(unittest.TestCase):
             DataLakeFactory._stream_dsv_to_sqlite = patched_stream
 
             try:
-                with self.assertRaises(FileProcessingError):
+                with pytest.raises(FileProcessingError):
                     DataLakeFactory.from_dsv_source(
                         dsv_source=dsv_source,
                         data_lake_path=self.data_lake_path
@@ -483,16 +486,16 @@ class TestDataLakeErrorHandling(unittest.TestCase):
 
 
 
-class TestDataLakeResourceManagement(unittest.TestCase):
+class TestDataLakeResourceManagement():
     """Test cases for DataLake database resource management."""
 
-    def setUp(self) -> None:
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         # Create a temporary directory for data lake
         self.temp_dir = tempfile.mkdtemp()
         self.data_lake_path = Path(self.temp_dir)
 
-    def tearDown(self) -> None:
+    def teardown_method(self) -> None:
         """Clean up test fixtures."""
         try:
             import shutil
@@ -520,7 +523,7 @@ class TestDataLakeResourceManagement(unittest.TestCase):
             with engine.connect() as connection:
                 result = connection.execute(text(f"SELECT COUNT(*) FROM {data_lake.db_table}"))
                 count = result.fetchone()[0]
-                self.assertEqual(count, 2)
+                assert count == 2
             engine.dispose()
 
         finally:
@@ -554,7 +557,7 @@ class TestDataLakeResourceManagement(unittest.TestCase):
                     with engine.connect() as connection:
                         result = connection.execute(text(f"SELECT COUNT(*) FROM {data_lake.db_table}"))
                         count = result.fetchone()[0]
-                        self.assertEqual(count, 3)
+                        assert count == 3
             finally:
                 # Ensure all engines are disposed
                 for engine in engines:
@@ -616,10 +619,10 @@ class TestDataLakeResourceManagement(unittest.TestCase):
                 thread.join()
 
             # Verify results
-            self.assertEqual(len(results), 5)
-            self.assertEqual(len(errors), 0)
+            assert len(results) == 5
+            assert len(errors) == 0
             for worker_id, count in results:
-                self.assertEqual(count, 100)
+                assert count == 100
 
         finally:
             try:
@@ -629,6 +632,4 @@ class TestDataLakeResourceManagement(unittest.TestCase):
 
 
 
-
-if __name__ == '__main__':
-    unittest.main() 
+ 

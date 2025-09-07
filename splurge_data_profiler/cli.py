@@ -10,7 +10,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any
 
 from splurge_data_profiler.data_lake import DataLakeFactory
 from splurge_data_profiler.profiler import Profiler
@@ -18,7 +18,7 @@ from splurge_data_profiler.source import DsvSource
 from splurge_data_profiler.exceptions import ConfigurationError, DataSourceError, ProfilingError
 
 
-def load_config(config_path: Path) -> Dict[str, Any]:
+def load_config(config_path: Path) -> dict[str, Any]:
     """
     Load configuration from a JSON file.
     
@@ -53,7 +53,7 @@ def load_config(config_path: Path) -> Dict[str, Any]:
 
 def create_dsv_source_from_config(
         dsv_path: Path,
-        config: Dict[str, Any]
+    config: dict[str, Any]
 ) -> DsvSource:
     """
     Create a DsvSource from configuration.
