@@ -446,12 +446,12 @@ class TestDbSource:
             db_table=self.db_table
         )
         
-    # Test that repr shows detailed information
-    repr_str = repr(source)
-    assert "DbSource" in repr_str
-    assert self.db_url in repr_str
-    assert self.db_table in repr_str
-    assert "columns=" in repr_str
+        # Test that repr shows detailed information
+        repr_str = repr(source)
+        assert "DbSource" in repr_str
+        assert self.db_url in repr_str
+        assert self.db_table in repr_str
+        assert "columns=" in repr_str
 
 
 class TestDsvSourceIntegration:
@@ -476,7 +476,9 @@ class TestDsvSourceIntegration:
             raise
         except Exception as exc:
             raise RuntimeError(f"Unexpected error in test: {exc}")
-        assert len(columns >= 2)
+
+        # Verify columns were loaded
+        assert len(columns) >= 2
         assert columns[0].name == "id"
         assert columns[1].name == "name"
 
@@ -664,7 +666,9 @@ class TestDataLakeFactoryStreaming:
                 
                 # All columns should be TEXT/VARCHAR type (as per our implementation)
                 for col_info in columns_info:
-                    assert col_info[2] == ["TEXT", "VARCHAR"]  # type column
+                    # SQLite reports column types as a single string (e.g. 'VARCHAR')
+                    # Accept either 'TEXT' or 'VARCHAR' to be robust across platforms
+                    assert col_info[2] in ["TEXT", "VARCHAR"]  # type column
                 
                 # Verify some random rows for data integrity
                 for i in range(1, 11):
@@ -939,14 +943,14 @@ class TestDataLakeFactory:
         # Verify the table name is correct
         expected_table_name = self.test_file_path.stem
         assert data_lake.db_table == expected_table_name
-        
+
         # Verify the schema is None (SQLite doesn't use schemas)
-        assert data_lake.db_schema
-        
+        assert data_lake.db_schema is None
+
         # Verify the column names are preserved
         expected_columns = ["id", "name", "value"]
         assert data_lake.column_names == expected_columns
-        
+
         # Verify the columns in the database source
         db_columns = data_lake.db_source.columns
         assert len(db_columns) == 3
@@ -1304,8 +1308,9 @@ class TestColumnEdgeCases:
 
         for data_type in test_cases:
             column = Column("test_column", inferred_type=data_type)
-            assert "test_column" == str(column)
-            assert f"DataType.{data_type.value}" == str(column)
+            # String representation includes the column name and the inferred type
+            assert "test_column" in str(column)
+            assert f"DataType.{data_type.value}" in str(column)
 
 
 class TestSourceEdgeCases:

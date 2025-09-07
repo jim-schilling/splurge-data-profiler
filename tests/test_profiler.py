@@ -353,8 +353,7 @@ class TestProfilerComprehensive:
         # Verify each column's inferred type
         for column in profiled_columns:
             if column.name in expected_types:
-                assert (
-                    column.inferred_type == expected_types[column.name],
+                assert column.inferred_type == expected_types[column.name], (
                     f"Column {column.name} should be {expected_types[column.name]} but got {column.inferred_type}"
                 )
 

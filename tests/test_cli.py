@@ -113,14 +113,14 @@ class TestCliFunctions:
             assert isinstance(result, DsvSource)
             assert result.file_path == dsv_path
             assert result.delimiter == ','
-            assert result.strip == True
+            assert result.strip
             assert result.bookend == '"'
-            assert result.bookend_strip == True
+            assert result.bookend_strip
             assert result.encoding == 'utf-8'
             assert result.skip_header_rows == 0
             assert result.skip_footer_rows == 0
             assert result.header_rows == 1
-            assert result.skip_empty_rows == True
+            assert result.skip_empty_rows
             
             # Verify columns were loaded
             assert len(result.columns) == 3
@@ -158,14 +158,14 @@ class TestCliFunctions:
             assert isinstance(result, DsvSource)
             assert result.file_path == dsv_path
             assert result.delimiter == '|'
-            assert result.strip == False
+            assert not result.strip
             assert result.bookend == "'"
-            assert result.bookend_strip == False
+            assert not result.bookend_strip
             assert result.encoding == 'latin-1'
             assert result.skip_header_rows == 2
             assert result.skip_footer_rows == 1
             assert result.header_rows == 1
-            assert result.skip_empty_rows == False
+            assert not result.skip_empty_rows
             
             # Verify columns were loaded correctly
             # Should use "id|name|value" as header (after skipping 2 rows)
