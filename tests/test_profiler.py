@@ -19,7 +19,7 @@ class TestProfilerComprehensive:
 
     
     def setup_method(self) -> None:
-        """Set up test fixtures once for the entire test class."""
+        """Set up test fixtures before each test method."""
         # Create temporary directory for data lake
         self.temp_dir = tempfile.mkdtemp()
         self.data_lake_path = Path(self.temp_dir)
@@ -820,72 +820,63 @@ class TestProfilerEdgeCases():
                 data_lake_path=Path(temp_dir)
             )
             
-            # Test datasets < 10K rows (100% sample)
+            # Test datasets < 5K rows (100% sample)
             test_cases_small = [
                 (0, 0),
                 (1, 1),
                 (1000, 1000),
-                (9999, 9999),
+                (4999, 4999),
             ]
             
             for total_rows, expected_sample in test_cases_small:
-                # unittest.subTest removed; run assertions directly under pytest
                 sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
-                expected = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
+                expected = expected_sample
                 assert sample_size == expected, f"Expected {expected} for {total_rows} rows, got {sample_size}"
             
-            # Test datasets 10K-25K rows (75% sample)
-            test_cases_75 = [
-                (10000, 7500),
-                (15000, 11250),
-                (20000, 15000),
-                (24999, int(24999 * 0.75)),
+            # Test datasets 5K-10K rows (80% sample)
+            test_cases_80 = [
+                (5000, 4000),
+                (7500, 6000),
+                (9999, 7999),
             ]
-            for total_rows, expected_sample in test_cases_75:
-                # unittest.subTest removed; run assertions directly under pytest
+            for total_rows, expected_sample in test_cases_80:
                 sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
-                expected = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
+                expected = expected_sample
                 assert sample_size == expected, f"Expected {expected} for {total_rows} rows, got {sample_size}"
             
-            # Test datasets 25K-50K rows (50% sample)
-            test_cases_50 = [
-                (25000, 12500),
-                (30000, 15000),
-                (40000, 20000),
-                (49999, int(49999 * 0.5)),
+            # Test datasets 10K-25K rows (60% sample)
+            test_cases_60 = [
+                (10000, 6000),
+                (15000, 9000),
+                (20000, 12000),
+                (24999, 14999),
             ]
-            for total_rows, expected_sample in test_cases_50:
+            for total_rows, expected_sample in test_cases_60:
                 # unittest.subTest removed; run assertions directly under pytest
                 sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
-                expected = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
+                expected = expected_sample
                 assert sample_size == expected, f"Expected {expected} for {total_rows} rows, got {sample_size}"
             
-            # Test datasets 50K-100K rows (25% sample)
-            test_cases_25 = [
-                (50000, 12500),
-                (60000, 15000),
-                (80000, 20000),
-                (99999, int(99999 * 0.25)),
+            # Test datasets 25K-100K rows (40% sample)
+            test_cases_40 = [
+                (25000, 10000),
+                (50000, 20000),
+                (75000, 30000),
+                (99999, 39999),
             ]
-            for total_rows, expected_sample in test_cases_25:
+            for total_rows, expected_sample in test_cases_40:
                 # unittest.subTest removed; run assertions directly under pytest
                 sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
-                expected = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
+                expected = expected_sample
                 assert sample_size == expected, f"Expected {expected} for {total_rows} rows, got {sample_size}"
             
-            # Test datasets 100K-500K rows (15% sample)
-            test_cases_15 = [
-                (100000, 15000),
-                (200000, 30000),
-                (300000, 45000),
-                (499999, int(499999 * 0.15)),
+            # Test datasets 100K-500K rows (20% sample)
+            test_cases_20 = [
+                (100000, 20000),
+                (200000, 40000),
+                (300000, 60000),
+                (499999, 99999),
             ]
-            for total_rows, expected_sample in test_cases_15:
-                # unittest.subTest removed; run assertions directly under pytest
-                sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
-                expected = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
-                assert sample_size == expected, f"Expected {expected} for {total_rows} rows, got {sample_size}"
-            
             # Test datasets > 500K rows (10% sample)
             test_cases_10 = [
                 (500000, 50000),
@@ -896,36 +887,36 @@ class TestProfilerEdgeCases():
             for total_rows, expected_sample in test_cases_10:
                 # unittest.subTest removed; run assertions directly under pytest
                 sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
-                expected = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
+                expected = expected_sample
                 assert sample_size == expected, f"Expected {expected} for {total_rows} rows, got {sample_size}"
             
             # Test boundary conditions and edge cases
             boundary_tests = [
                 # Test exact boundaries
-                (10000, 7500),  # Exactly at 10K boundary
-                (25000, 12500),  # Exactly at 25K boundary
-                (50000, 12500),  # Exactly at 50K boundary
-                (100000, 15000), # Exactly at 100K boundary
-                (500000, 50000), # Exactly at 500K boundary
+                (5000, 4000),   # Exactly at 5K boundary (80% sample)
+                (10000, 6000),  # Exactly at 10K boundary (60% sample)
+                (25000, 10000), # Exactly at 25K boundary (40% sample)
+                (100000, 20000), # Exactly at 100K boundary (20% sample)
+                (500000, 50000), # Exactly at 500K boundary (10% sample)
                 
                 # Test one row before boundaries
-                (9999, 9999),  # One row before 10K boundary
-                (24999, int(24999 * 0.75)),  # One row before 25K boundary
-                (49999, int(49999 * 0.5)),  # One row before 50K boundary
-                (99999, int(99999 * 0.25)),  # One row before 100K boundary
-                (499999, int(499999 * 0.15)), # One row before 500K boundary
+                (4999, 4999),   # One row before 5K boundary (100% sample)
+                (9999, 7999),   # One row before 10K boundary (80% sample)
+                (24999, 14999), # One row before 25K boundary (60% sample)
+                (99999, 39999), # One row before 100K boundary (40% sample)
+                (499999, 99999), # One row before 500K boundary (20% sample)
                 
                 # Test one row after boundaries
-                (10001, int(10001 * 0.75)),  # One row after 10K boundary
-                (25001, int(25001 * 0.5)),  # One row after 25K boundary
-                (50001, int(50001 * 0.25)),  # One row after 50K boundary
-                (100001, int(100001 * 0.15)), # One row after 100K boundary
-                (500001, int(500001 * 0.10)), # One row after 500K boundary
+                (5001, 4000),   # One row after 5K boundary (80% sample)
+                (10001, 6000),  # One row after 10K boundary (60% sample)
+                (25001, 10000), # One row after 25K boundary (40% sample)
+                (100001, 20000), # One row after 100K boundary (20% sample)
+                (500001, 50000), # One row after 500K boundary (10% sample)
             ]
             for total_rows, expected_sample in boundary_tests:
                 # unittest.subTest removed; run assertions directly under pytest
                 sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
-                expected = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
+                expected = expected_sample
                 assert sample_size == expected, f"Expected {expected} for {total_rows} rows, got {sample_size}"
             
             # Test that sample size never exceeds total rows
@@ -1016,7 +1007,7 @@ class TestProfilerTypeCasting():
         self.data_lake_path = Path(self.temp_dir)
 
     def teardown_method(self) -> None:
-        """Clean up test fixtures for pytest."""
+        """Clean up test fixtures after each test method."""
         try:
             shutil.rmtree(self.temp_dir)
         except OSError:
