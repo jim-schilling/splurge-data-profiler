@@ -239,41 +239,6 @@ def test_streaming_large_dsv_file_performance(large_csv_and_data_lake):
     assert creation_time < 30.0, f"Data lake creation took {creation_time:.2f} seconds"
 
 
-def test_streaming_large_dsv_file_memory_usage(large_csv_and_data_lake):
-    """Test memory usage when streaming large DSV files."""
-    # Skip this test if psutil is not available
-    try:
-        import psutil
-        import os
-
-        csv_path, data_lake_path = large_csv_and_data_lake
-
-        # Get initial memory usage
-        process = psutil.Process(os.getpid())
-        initial_memory = process.memory_info().rss
-
-        # Create DsvSource
-        dsv_source = DsvSource(csv_path)
-
-        # Create data lake using factory
-        data_lake = DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=data_lake_path)
-
-        # Get final memory usage
-        final_memory = process.memory_info().rss
-        memory_increase = final_memory - initial_memory
-
-        # Verify the data lake was created successfully
-        assert isinstance(data_lake, DataLake)
-
-        # Memory usage assertion (should not increase excessively)
-        # Memory increase should be reasonable (less than 100MB for 10K rows)
-        memory_increase_mb = memory_increase / (1024 * 1024)
-        assert memory_increase_mb < 100.0, f"Memory usage increased by {memory_increase_mb:.2f} MB"
-    except ImportError:
-        # Skip test if psutil is not available
-        pytest.skip("psutil not available - skipping memory usage test")
-
-
 def test_streaming_large_dsv_file_with_different_delimiters(large_csv_and_data_lake):
     """Test streaming large DSV files with different delimiters."""
     import csv

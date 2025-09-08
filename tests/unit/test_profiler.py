@@ -853,19 +853,16 @@ class TestProfilerEdgeCases:
 
             # Test that sample size never exceeds total rows
             for total_rows in [1000, 25000, 50000, 100000, 500000, 1000000]:
-                # unittest.subTest removed; run assertions directly under pytest
                 sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
                 assert sample_size <= total_rows, f"Sample size {sample_size} should not exceed total rows {total_rows}"
 
             # Test that sample size is always non-negative
             for total_rows in [0, 1, 1000, 25000, 50000, 100000, 500000, 1000000]:
-                # unittest.subTest removed; run assertions directly under pytest
                 sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
                 assert sample_size >= 0, f"Sample size {sample_size} should be non-negative for {total_rows} rows"
 
             # Test that sample size is always an integer
             for total_rows in [1000, 25000, 50000, 100000, 500000, 1000000]:
-                # unittest.subTest removed; run assertions directly under pytest
                 sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
                 assert isinstance(sample_size, int), (
                     f"Sample size {sample_size} should be an integer for {total_rows} rows"

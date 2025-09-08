@@ -138,7 +138,11 @@ This document contains coding standards and guidelines for the splurge-ai-rules 
 - Use fixtures for common setup and teardown logic.
 - Use parameterized tests for testing multiple input scenarios.
 - Use assertions to validate expected outcomes.
-- Place test classes in own module if they exceed 200 lines.
+- Prefer tests/unit/* to run to completion within 60 seconds.
+- Prefer tests/integration/* to run to completion within 60 seconds.
+- Prefer tests/e2e/* to run to run to completion within 60 seconds.
+- Prefer tests/performance/* to run to completion within 60 seconds.
+- Prefer entire test suite to run to completion within 120 seconds.
 
 ## CLI Standards
 - MUST accept text input via stdin, arguments or files.
