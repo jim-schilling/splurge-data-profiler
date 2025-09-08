@@ -10,7 +10,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict
 
 from splurge_data_profiler.data_lake import DataLakeFactory
 from splurge_data_profiler.profiler import Profiler
@@ -37,7 +37,11 @@ def load_config(config_path: Path) -> dict[str, Any]:
 
     try:
         with open(config_path, 'r', encoding='utf-8') as f:
-            config = json.load(f)
+            raw = json.load(f)
+            if not isinstance(raw, dict):
+                raise ConfigurationError("Configuration file must be a JSON object")
+            typed_config: Dict[str, Any] = raw
+            config = typed_config
     except json.JSONDecodeError as exc:
         raise ConfigurationError(f"Invalid JSON in config file: {exc}", details=str(exc)) from exc
 

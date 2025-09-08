@@ -147,7 +147,11 @@ def test_dsv_source_encoding_and_skip_rows_edge_cases(tmp_path: Path):
     # Skip rows edge cases
     skip_path = tmp_path / "skip.csv"
     skip_path.write_text(
-        "# Comment line 1\n# Comment line 2\nid,name,value\n1,Alice,100\n2,Bob,200\n# Footer comment\n# Another footer\n",
+        (
+            "# Comment line 1\n# Comment line 2\n"
+            "id,name,value\n1,Alice,100\n2,Bob,200\n"
+            "# Footer comment\n# Another footer\n"
+        ),
         encoding="utf-8",
     )
 
@@ -174,7 +178,15 @@ def test_dsv_source_whitespace_and_bookend_handling(tmp_path: Path):
 def test_dsv_source_bookend_edge_cases(tmp_path: Path):
     """Test bookend/quote handling edge cases."""
     quote_path = tmp_path / "quote.csv"
-    quote_path.write_text('"id","name","value"\n"1","Alice","100"\n"2","Bob","200"\n3,"Charlie","300"\n', encoding="utf-8")
+    quote_path.write_text(
+        (
+            '"id","name","value"\n'
+            '"1","Alice","100"\n'
+            '"2","Bob","200"\n'
+            '3,"Charlie","300"\n'
+        ),
+        encoding="utf-8",
+    )
 
     # With bookend_strip=True (default)
     source_strip = DsvSource(quote_path, bookend='"', bookend_strip=True)
@@ -188,7 +200,15 @@ def test_dsv_source_bookend_edge_cases(tmp_path: Path):
 def test_dsv_source_mixed_data_types(tmp_path: Path):
     """Test DsvSource with mixed data types in columns."""
     mixed_path = tmp_path / "mixed.csv"
-    mixed_path.write_text("id,name,value,active\n1,Alice,100.5,true\n2,Bob,200,false\n3,Charlie,300.75,1\n", encoding="utf-8")
+    mixed_path.write_text(
+        (
+            "id,name,value,active\n"
+            "1,Alice,100.5,true\n"
+            "2,Bob,200,false\n"
+            "3,Charlie,300.75,1\n"
+        ),
+        encoding="utf-8",
+    )
 
     source = DsvSource(mixed_path)
     assert len(source.columns) == 4

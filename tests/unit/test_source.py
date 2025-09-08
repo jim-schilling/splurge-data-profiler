@@ -496,7 +496,11 @@ class TestDbSource:
     def test_dsv_source_skip_rows_edge_cases(self) -> None:
         skip_path = self.data_lake_path / "skip.csv"
         skip_path.write_text(
-            "# Comment line 1\n# Comment line 2\nid,name,value\n1,Alice,100\n2,Bob,200\n# Footer comment\n# Another footer\n",
+            (
+                "# Comment line 1\n# Comment line 2\n"
+                "id,name,value\n1,Alice,100\n2,Bob,200\n"
+                "# Footer comment\n# Another footer\n"
+            ),
             encoding="utf-8",
         )
         source = DsvSource(skip_path, skip_header_rows=2)
@@ -511,7 +515,14 @@ class TestDbSource:
     def test_dsv_source_whitespace_handling(self, tmp_path: Path) -> None:
         # Use pytest tmp_path for temporary file
         ws_path = tmp_path / "ws.csv"
-        ws_path.write_text("  id  ,  name  ,  value  \n  1  ,  Alice  ,  100  \n  2  ,  Bob  ,  200  \n", encoding="utf-8")
+        ws_path.write_text(
+            (
+                "  id  ,  name  ,  value  \n"
+                "  1  ,  Alice  ,  100  \n"
+                "  2  ,  Bob  ,  200  \n"
+            ),
+            encoding="utf-8",
+        )
 
         source_strip = DsvSource(ws_path, strip=True)
         assert source_strip.columns[0].name == "id"
@@ -520,7 +531,15 @@ class TestDbSource:
 
     def test_dsv_source_bookend_edge_cases(self, tmp_path: Path) -> None:
         quote_path = tmp_path / "quote.csv"
-        quote_path.write_text('"id","name","value"\n"1","Alice","100"\n"2","Bob","200"\n3,"Charlie","300"\n', encoding="utf-8")
+        quote_path.write_text(
+            (
+                '"id","name","value"\n'
+                '"1","Alice","100"\n'
+                '"2","Bob","200"\n'
+                '3,"Charlie","300"\n'
+            ),
+            encoding="utf-8",
+        )
 
         source_strip = DsvSource(quote_path, bookend='"', bookend_strip=True)
         assert len(source_strip.columns) == 3
@@ -529,7 +548,15 @@ class TestDbSource:
 
     def test_dsv_source_mixed_data_types(self, tmp_path: Path) -> None:
         mixed_path = tmp_path / "mixed.csv"
-        mixed_path.write_text("id,name,value,active\n1,Alice,100.5,true\n2,Bob,200,false\n3,Charlie,300.75,1\n", encoding="utf-8")
+        mixed_path.write_text(
+            (
+                "id,name,value,active\n"
+                "1,Alice,100.5,true\n"
+                "2,Bob,200,false\n"
+                "3,Charlie,300.75,1\n"
+            ),
+            encoding="utf-8",
+        )
 
         source = DsvSource(mixed_path)
         assert len(source.columns) == 4

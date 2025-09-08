@@ -1,15 +1,31 @@
 from abc import ABC
 from enum import Enum
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any, Iterator, TYPE_CHECKING
 
 from sqlalchemy import create_engine, inspect, MetaData, Table
 from sqlalchemy.exc import SQLAlchemyError
-from splurge_dsv.dsv_helper import DsvHelper
-from splurge_dsv.text_file_helper import TextFileHelper
-from splurge_tabular.tabular_data_model import TabularDataModel
-from splurge_tabular.exceptions import SplurgeValidationError
-from splurge_dsv.exceptions import SplurgeFileNotFoundError
+if TYPE_CHECKING:
+    from splurge_dsv.dsv_helper import DsvHelper  # type: ignore
+    from splurge_dsv.text_file_helper import TextFileHelper  # type: ignore
+    from splurge_tabular.tabular_data_model import TabularDataModel  # type: ignore
+    from splurge_tabular.exceptions import SplurgeValidationError  # type: ignore
+    from splurge_dsv.exceptions import SplurgeFileNotFoundError  # type: ignore
+else:
+    # At runtime attempt to import the real implementations. If the
+    # third-party packages are not available, fail fast so tests and
+    # consumers get a clear ImportError instead of subtle runtime
+    # failures caused by assigning typing.Any to these symbols.
+    try:
+        from splurge_dsv.dsv_helper import DsvHelper  # type: ignore
+        from splurge_dsv.text_file_helper import TextFileHelper  # type: ignore
+        from splurge_tabular.tabular_data_model import TabularDataModel  # type: ignore
+        from splurge_tabular.exceptions import SplurgeValidationError  # type: ignore
+        from splurge_dsv.exceptions import SplurgeFileNotFoundError  # type: ignore
+    except Exception as exc:  # pragma: no cover - import-time guard
+        raise ImportError(
+            "Missing runtime dependency: splurge_dsv and/or splurge_tabular are required"
+        ) from exc
 from splurge_data_profiler.exceptions import DataSourceError, FileProcessingError, DatabaseError
 
 

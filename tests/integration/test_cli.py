@@ -61,7 +61,12 @@ def test_workflow_error_recovery(tmp_path: Path):
         # Test with missing config file
         result = run_cli_command(["profile", "test.csv", "missing_config.json"])
         assert result.returncode != 0
-        assert "Configuration file not found" in result.stderr or "no such file" in result.stderr.lower() or result.returncode != 0
+        stderr = result.stderr
+        assert (
+            "Configuration file not found" in stderr
+            or "no such file" in stderr.lower()
+            or result.returncode != 0
+        )
 
         # Test with invalid config
         (tmp_path / "invalid_config.json").write_text('{"invalid": json}')

@@ -36,6 +36,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Error Recovery**: Improved error recovery for malformed input files
 - **Database Connection Handling**: Enhanced connection pooling and disposal
 
+### Verified
+- Test suite: 211 tests passed (run with pytest -n auto).
+- Coverage: 92% overall (coverage report written to `htmlcov/` and `coverage.xml`).
+
+Recent maintenance and test hygiene changes:
+
+- Replaced stdlib `tempfile` usage in tests with pytest-managed fixtures (`tmp_path` and `tmp_path_factory`).
+- Removed repository-level autouse fixture that monkeypatched `tempfile` and made tempfile handling explicit in tests.
+- Fixed mypy issues by adding TYPE_CHECKING guards and performing runtime import checks for third-party helper packages.
+- Replaced silent runtime `Any` fallbacks for third-party imports with fail-fast runtime imports so missing dependencies raise an ImportError instead of causing subtle runtime errors during profiling.
+- Fixed several linter (ruff) issues and ensured the project lints cleanly.
+
 ## [0.1.1] - 2025-07-10
 
 ### Changed

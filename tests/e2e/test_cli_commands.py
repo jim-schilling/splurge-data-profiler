@@ -12,7 +12,11 @@ from pathlib import Path
 
 
 def run_cli(args):
-    result = subprocess.run([subprocess.sys.executable, "-m", "splurge_data_profiler", *args], capture_output=True, text=True)
+    result = subprocess.run(
+        [subprocess.sys.executable, "-m", "splurge_data_profiler", *args],
+        capture_output=True,
+        text=True,
+    )
     return result
 
 

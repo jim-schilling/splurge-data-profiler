@@ -8,9 +8,21 @@ from sqlalchemy import (
 )
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
-from splurge_typer.string import String
-from splurge_typer.type_inference import TypeInference
-from splurge_typer.data_type import DataType as StDataType
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from splurge_typer.string import String  # type: ignore
+    from splurge_typer.type_inference import TypeInference  # type: ignore
+    from splurge_typer.data_type import DataType as StDataType  # type: ignore
+else:
+    try:
+        from splurge_typer.string import String  # type: ignore
+        from splurge_typer.type_inference import TypeInference  # type: ignore
+        from splurge_typer.data_type import DataType as StDataType  # type: ignore
+    except Exception as exc:  # pragma: no cover - import-time guard
+        raise ImportError(
+            "Missing runtime dependency: splurge_typer is required"
+        ) from exc
 
 from splurge_data_profiler.data_lake import DataLake
 from splurge_data_profiler.source import Column, DataType
@@ -100,7 +112,8 @@ class Profiler:
                     if db_schema and 'sqlite' not in self._data_lake.db_url:
                         table_name = f"{db_schema}.{table_name}"
                     result = connection.execute(text(f"SELECT COUNT(*) FROM {table_name}"))
-                    total_rows = result.fetchone()[0]
+                    row = result.fetchone()
+                    total_rows = int(row[0]) if row and row[0] is not None else 0
 
                 sample_size = self.calculate_adaptive_sample_size(total_rows=total_rows)
 
@@ -168,6 +181,7 @@ class Profiler:
 
         # Profile the values using the profile_values function
         if values:
+            # TypeInference.profile_values is expected to be a classmethod.
             profiling_result = TypeInference.profile_values(values)
 
             # Map the profiling result to our DataType enum

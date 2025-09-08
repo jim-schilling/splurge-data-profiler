@@ -1,12 +1,21 @@
 from pathlib import Path
-from typing import List, Any
+from typing import List, Any, TYPE_CHECKING
 from os import PathLike
 
 from sqlalchemy import create_engine, MetaData, Table, Column as SAColumn, String, insert
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
-from splurge_dsv.dsv_helper import DsvHelper
-from splurge_tabular.streaming_tabular_data_model import StreamingTabularDataModel
+if TYPE_CHECKING:
+    from splurge_dsv.dsv_helper import DsvHelper  # type: ignore
+    from splurge_tabular.streaming_tabular_data_model import StreamingTabularDataModel  # type: ignore
+else:
+    try:
+        from splurge_dsv.dsv_helper import DsvHelper  # type: ignore
+        from splurge_tabular.streaming_tabular_data_model import StreamingTabularDataModel  # type: ignore
+    except Exception as exc:  # pragma: no cover - import-time guard
+        raise ImportError(
+            "Missing runtime dependency: splurge_dsv and/or splurge_tabular are required"
+        ) from exc
 
 from splurge_data_profiler.source import DsvSource, DbSource
 from splurge_data_profiler.exceptions import DatabaseError, FileProcessingError
