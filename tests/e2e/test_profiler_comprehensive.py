@@ -1,6 +1,4 @@
 import os
-import tempfile
-import shutil
 from pathlib import Path
 from datetime import datetime, date, time, timedelta
 import csv
@@ -16,38 +14,23 @@ from splurge_data_profiler.profiler import Profiler
 
 
 @pytest.fixture(scope="module")
-def comprehensive_test_data():
-    """Set up comprehensive test data for the entire test module."""
-    # Create temporary directory for data lake
-    temp_dir = tempfile.mkdtemp()
+def comprehensive_test_data(tmp_path_factory):
+    """Set up comprehensive test data for the entire test module using pytest tmp_path_factory."""
+    # Create temporary directory for data lake under pytest-managed temp
+    temp_dir = tmp_path_factory.mktemp("profiler_comprehensive_data")
     data_lake_path = Path(temp_dir)
 
-    # Create temporary CSV file
-    temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
-    csv_path = Path(temp_path)
+    # Create temporary CSV file path
+    csv_path = Path(temp_dir) / "comprehensive.csv"
 
     # Generate comprehensive test data (reduced from 15000 to 1000 rows)
-    _generate_comprehensive_csv(temp_fd)
+    _generate_comprehensive_csv_to_path(csv_path)
 
     # Create DsvSource and DataLake
     dsv_source = DsvSource(csv_path, delimiter="|", bookend='"')
     data_lake = DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=data_lake_path)
 
-    yield temp_dir, temp_fd, temp_path, dsv_source, data_lake
-
-    # Clean up test fixtures
-    # Close and remove temporary CSV file
-    try:
-        os.close(temp_fd)
-        os.unlink(temp_path)
-    except (OSError, AttributeError):
-        pass
-
-    # Remove temporary directory and contents
-    try:
-        shutil.rmtree(temp_dir)
-    except OSError:
-        pass
+    yield str(temp_dir), None, str(csv_path), dsv_source, data_lake
 
 
 @pytest.fixture
@@ -97,6 +80,52 @@ def _generate_comprehensive_csv(temp_fd) -> None:
     delimiter = "|"
     bookend = '"'
     with os.fdopen(temp_fd, "w", encoding="utf-8", newline="") as f:
+        writer = csv.writer(f, delimiter=delimiter, quotechar=bookend, quoting=csv.QUOTE_ALL)
+        writer.writerow(header)
+        for i in range(1000):
+            row_data = [str(generator_func(i)) for _, _, generator_func in column_configs]
+            writer.writerow(row_data)
+
+
+def _generate_comprehensive_csv_to_path(csv_path: Path) -> None:
+    """Generate the comprehensive CSV file at the given path (1000 rows)."""
+    column_configs = [
+        # TEXT columns
+        ("text_simple", "TEXT", _generate_text_values),
+        ("text_names", "TEXT", _generate_name_values),
+        ("text_emails", "TEXT", _generate_email_values),
+        ("text_addresses", "TEXT", _generate_address_values),
+        # INTEGER columns
+        ("integer_small", "INTEGER", _generate_small_integer_values),
+        ("integer_large", "INTEGER", _generate_large_integer_values),
+        ("integer_negative", "INTEGER", _generate_negative_integer_values),
+        ("integer_mixed", "INTEGER", _generate_mixed_integer_values),
+        # FLOAT columns
+        ("float_simple", "FLOAT", _generate_simple_float_values),
+        ("float_precise", "FLOAT", _generate_precise_float_values),
+        ("float_scientific", "FLOAT", _generate_scientific_float_values),
+        ("float_currency", "FLOAT", _generate_currency_float_values),
+        # BOOLEAN columns
+        ("boolean_simple", "BOOLEAN", _generate_boolean_values),
+        ("boolean_text", "BOOLEAN", _generate_boolean_text_values),
+        ("boolean_mixed", "BOOLEAN", _generate_mixed_boolean_values),
+        # DATE columns
+        ("date_simple", "DATE", _generate_date_values),
+        ("date_formatted", "DATE", _generate_formatted_date_values),
+        ("date_mixed", "DATE", _generate_mixed_date_values),
+        # TIME columns
+        ("time_simple", "TIME", _generate_time_values),
+        ("time_formatted", "TIME", _generate_formatted_time_values),
+        ("time_mixed", "TIME", _generate_mixed_time_values),
+        # DATETIME columns
+        ("datetime_simple", "DATETIME", _generate_datetime_values),
+        ("datetime_formatted", "DATETIME", _generate_formatted_datetime_values),
+        ("datetime_mixed", "DATETIME", _generate_mixed_datetime_values),
+    ]
+    header = [config[0] for config in column_configs]
+    delimiter = "|"
+    bookend = '"'
+    with csv_path.open("w", encoding="utf-8", newline="") as f:
         writer = csv.writer(f, delimiter=delimiter, quotechar=bookend, quoting=csv.QUOTE_ALL)
         writer.writerow(header)
         for i in range(1000):
@@ -427,9 +456,11 @@ def test_profiler_large_dataset_performance(profiler_instance) -> None:
 
 def test_profiler_error_handling(comprehensive_test_data) -> None:
     """Test profiler error handling with invalid database connection."""
-    _, _, _, dsv_source, _ = comprehensive_test_data
-    # Create profiler with invalid data lake
-    invalid_data_lake = DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=Path(tempfile.mkdtemp()))
+    temp_dir, _, _, dsv_source, _ = comprehensive_test_data
+    # Create profiler with invalid data lake under the pytest-managed temp dir
+    invalid_dl_path = Path(temp_dir) / "invalid_data_lake"
+    invalid_dl_path.mkdir(parents=True, exist_ok=True)
+    invalid_data_lake = DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=invalid_dl_path)
 
     # Manually corrupt the database URL
     invalid_data_lake._db_url = "sqlite:///nonexistent.db"
@@ -569,10 +600,13 @@ def _verify_casting_examples(connection, table_name: str) -> None:
             assert original == cast_value
 
 
-def test_profiler_empty_table() -> None:
+def test_profiler_empty_table(tmp_path: Path) -> None:
     """Test profiling on an empty table."""
     # Create a new empty table in a separate database
-    temp_db_path = tempfile.mktemp(suffix=".sqlite")
+    # Use pytest tmp_path fixture by creating a file under a temp path unique to this test
+    # (pytest will manage cleanup)
+    # create a unique temp sqlite file under pytest tmp_path
+    temp_db_path = tmp_path / "empty_table.sqlite"
     db_url = f"sqlite:///{temp_db_path}"
     engine = create_engine(db_url)
     empty_table_name = "empty_table"
@@ -585,27 +619,20 @@ def test_profiler_empty_table() -> None:
     metadata.create_all(engine)
     engine.dispose()
 
-    try:
-        # Create a DataLake for the empty table
-        db_source = DbSource(db_url=db_url, db_schema=None, db_table=empty_table_name)
-        data_lake = DataLake(db_source=db_source)
-        profiler = Profiler(data_lake=data_lake)
-        # Should not raise, but profiled_columns should be empty or TEXT
-        profiler.profile(sample_size=10)
-        for col in profiler.profiled_columns:
-            assert col.inferred_type == DataType.TEXT
-    finally:
-        # Clean up temporary database
-        try:
-            os.remove(temp_db_path)
-        except OSError:
-            pass
+    # Create a DataLake for the empty table
+    db_source = DbSource(db_url=db_url, db_schema=None, db_table=empty_table_name)
+    data_lake = DataLake(db_source=db_source)
+    profiler = Profiler(data_lake=data_lake)
+    # Should not raise, but profiled_columns should be empty or TEXT
+    profiler.profile(sample_size=10)
+    for col in profiler.profiled_columns:
+        assert col.inferred_type == DataType.TEXT
 
 
-def test_profiler_all_nulls() -> None:
+def test_profiler_all_nulls(tmp_path: Path) -> None:
     """Test profiling on a table with only nulls."""
     # Create a new table in a separate database
-    temp_db_path = tempfile.mktemp(suffix=".sqlite")
+    temp_db_path = tmp_path / "nulls_table.sqlite"
     db_url = f"sqlite:///{temp_db_path}"
     engine = create_engine(db_url)
     null_table_name = "null_table"
@@ -622,34 +649,27 @@ def test_profiler_all_nulls() -> None:
         conn.commit()
     engine.dispose()
 
-    try:
-        db_source = DbSource(db_url=db_url, db_schema=None, db_table=null_table_name)
-        data_lake = DataLake(db_source=db_source)
-        profiler = Profiler(data_lake=data_lake)
-        profiler.profile(sample_size=10)
+    db_source = DbSource(db_url=db_url, db_schema=None, db_table=null_table_name)
+    data_lake = DataLake(db_source=db_source)
+    profiler = Profiler(data_lake=data_lake)
+    profiler.profile(sample_size=10)
 
-        # Check that we have the expected columns
-        assert len(profiler.profiled_columns) == 2
+    # Check that we have the expected columns
+    assert len(profiler.profiled_columns) == 2
 
-        # Find the value column (which should be all nulls and infer as TEXT)
-        value_col = next(col for col in profiler.profiled_columns if col.name == "value")
-        assert value_col.inferred_type == DataType.TEXT
+    # Find the value column (which should be all nulls and infer as TEXT)
+    value_col = next(col for col in profiler.profiled_columns if col.name == "value")
+    assert value_col.inferred_type == DataType.TEXT
 
-        # The id column should be inferred as INTEGER since it contains numeric strings
-        id_col = next(col for col in profiler.profiled_columns if col.name == "id")
-        assert id_col.inferred_type == DataType.INTEGER
-    finally:
-        # Clean up temporary database
-        try:
-            os.remove(temp_db_path)
-        except OSError:
-            pass
+    # The id column should be inferred as INTEGER since it contains numeric strings
+    id_col = next(col for col in profiler.profiled_columns if col.name == "id")
+    assert id_col.inferred_type == DataType.INTEGER
 
 
-def test_profiler_mixed_types() -> None:
+def test_profiler_mixed_types(tmp_path: Path) -> None:
     """Test profiling on a table with mixed types."""
     # Create a new table in a separate database
-    temp_db_path = tempfile.mktemp(suffix=".sqlite")
+    temp_db_path = tmp_path / "mixed_table.sqlite"
     db_url = f"sqlite:///{temp_db_path}"
     engine = create_engine(db_url)
     mixed_table_name = "mixed_table"
@@ -674,28 +694,21 @@ def test_profiler_mixed_types() -> None:
         conn.commit()
     engine.dispose()
 
-    try:
-        db_source = DbSource(db_url=db_url, db_schema=None, db_table=mixed_table_name)
-        data_lake = DataLake(db_source=db_source)
-        profiler = Profiler(data_lake=data_lake)
-        profiler.profile(sample_size=10)
+    db_source = DbSource(db_url=db_url, db_schema=None, db_table=mixed_table_name)
+    data_lake = DataLake(db_source=db_source)
+    profiler = Profiler(data_lake=data_lake)
+    profiler.profile(sample_size=10)
 
-        # Check that we have the expected columns
-        assert len(profiler.profiled_columns) == 2
+    # Check that we have the expected columns
+    assert len(profiler.profiled_columns) == 2
 
-        # The value column should be inferred as TEXT since it contains mixed types
-        value_col = next(col for col in profiler.profiled_columns if col.name == "value")
-        assert value_col.inferred_type == DataType.TEXT
+    # The value column should be inferred as TEXT since it contains mixed types
+    value_col = next(col for col in profiler.profiled_columns if col.name == "value")
+    assert value_col.inferred_type == DataType.TEXT
 
-        # The id column should be inferred as INTEGER since it contains numeric strings
-        id_col = next(col for col in profiler.profiled_columns if col.name == "id")
-        assert id_col.inferred_type == DataType.INTEGER
-    finally:
-        # Clean up temporary database
-        try:
-            os.remove(temp_db_path)
-        except OSError:
-            pass
+    # The id column should be inferred as INTEGER since it contains numeric strings
+    id_col = next(col for col in profiler.profiled_columns if col.name == "id")
+    assert id_col.inferred_type == DataType.INTEGER
 
 
 def test_profiler_db_connection_error() -> None:

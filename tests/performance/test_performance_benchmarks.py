@@ -8,7 +8,6 @@ of data profiling operations across different dataset sizes and scenarios.
 import csv
 import gc
 import random
-import tempfile
 import time
 import pytest
 from datetime import datetime, timedelta
@@ -209,10 +208,9 @@ DEPARTMENTS = [
 
 
 @pytest.fixture
-def performance_benchmark_setup():
-    """Set up test environment for performance benchmarks."""
-    temp_dir = tempfile.TemporaryDirectory()
-    test_dir = Path(temp_dir.name)
+def performance_benchmark_setup(tmp_path_factory):
+    """Set up test environment for performance benchmarks using pytest tmp_path_factory."""
+    test_dir = tmp_path_factory.mktemp("performance_benchmarks")
 
     # Generate a large DSV file with 100,000 rows for testing
     dsv_path = test_dir / "performance_test_data_100k.dsv"
@@ -221,21 +219,9 @@ def performance_benchmark_setup():
 
     yield test_dir, dsv_path
 
-    # Clean up test fixtures
-    # Force garbage collection to ensure database connections are closed
+    # Cleanup: ensure DB connections are closed and let pytest remove the temp directory
     gc.collect()
-    time.sleep(0.1)  # Small delay to allow file handles to be released
-    try:
-        temp_dir.cleanup()
-    except (OSError, PermissionError):
-        # On Windows, SQLite files might still be locked
-        # Try again after a longer delay
-        time.sleep(1.0)
-        try:
-            temp_dir.cleanup()
-        except (OSError, PermissionError):
-            # If cleanup still fails, just continue - files will be cleaned up by OS
-            pass
+    time.sleep(0.1)
 
 
 def _generate_dsv(file_path: Path, *, num_rows: int = 100000, delimiter: str = "|", bookend: str = '"') -> None:
@@ -320,23 +306,6 @@ def _truncate_dsv_file_copy(file_path: Path, num_rows: int) -> None:
     # Write back truncated file
     with open(file_path, "w", encoding="utf-8") as f:
         f.writelines(lines_to_keep)
-
-
-def _cleanup_database_tables(db_path: Path) -> None:
-    """
-    Clean up database tables if they exist.
-
-    Args:
-        db_path: Path to the database file
-    """
-    db_url = f"sqlite:///{db_path}"
-    engine = create_engine(db_url)
-    try:
-        with engine.connect() as connection:
-            for table in ["performance_test_data_inferred", "performance_test_data"]:
-                connection.execute(text(f"DROP TABLE IF EXISTS {table}"))
-    finally:
-        engine.dispose()
 
 
 def _print_performance_summary(test_name: str, results: Dict[str, float], *, num_rows: int, db_path: Path) -> None:

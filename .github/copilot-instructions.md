@@ -95,7 +95,7 @@ This document contains coding standards and guidelines for the splurge-ai-rules 
 - When updating a method or class signature, do not maintain backwards compatibility unless specifically told to do so.
 
 ## Style Standards
-- Prefer line length max of 120 characters, except when to do so would require use of temporary variables.
+- Prefer line length max of 120 characters in code modules, except for tests or when to do so would require use of temporary variables.
 - Except clauses shall be prefixed with a blank line.
 - Prefer separating logical blocks of code with a blank line for visual clarity.
 - For Python, for any line continuations, use parentheses only.
@@ -130,7 +130,10 @@ This document contains coding standards and guidelines for the splurge-ai-rules 
 - Prefer shared helpers for common logic.
 - Avoid validation of implementation details and private APIs.
 - Prefer validation of patterns of text, and avoid exact matching of content and formatting.
-- For Python, prefer pytest, pytest-cov, and pytest-xdist for testing with default parameters of -x -v -n auto.
+- Prefer pytest with pytest-xdist for testing with default parameters of -x -v -n auto.
+- Prefer pytest-cov for code coverage with parameters --cov=your_package --cov-report=term-missing.
+- Prefer pytest-mock for mocking, where appropriate.
+- Run pytest with code coverage when asked by user, otherwise skip.
 - Place unit tests in tests/unit/ and integration tests in tests/integration/, e2e tests in tests/e2e/, and performance tests in tests/performance/.
 - For Python, prefer pure pytest function style tests.
 - For Python, prefer use of tmp_path and tmp_path_factory fixtures for temporary files and directories.

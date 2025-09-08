@@ -1,5 +1,4 @@
-import os
-import tempfile
+import uuid
 import pytest
 from pathlib import Path
 
@@ -9,34 +8,28 @@ from splurge_data_profiler.profiler import Profiler
 
 
 @pytest.fixture
-def temp_data_lake_path():
-    """Create a temporary directory for data lake testing."""
-    temp_dir = tempfile.mkdtemp()
-    data_lake_path = Path(temp_dir)
-
+def temp_data_lake_path(tmp_path: Path):
+    """Create a temporary directory for data lake testing under pytest's tmp_path."""
+    data_lake_path = tmp_path / "data_lake"
+    data_lake_path.mkdir()
     yield data_lake_path
-
-    # Cleanup
-    try:
-        import shutil
-
-        shutil.rmtree(temp_dir)
-    except OSError:
-        pass
 
 
 def create_test_profiler(data_lake_path: Path) -> Profiler:
-    """Helper function to create a test profiler with minimal data."""
-    temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
+    """Helper function to create a test profiler with minimal data.
+
+    The function creates a small CSV file under the same tmp directory as
+    the data lake, then removes it after the profiler is created.
+    """
+    temp_path = data_lake_path.parent / f"{uuid.uuid4().hex}.csv"
+    temp_path.write_text("id\n1\n", encoding="utf-8")
     try:
-        with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
-            f.write("id\n1\n")
         dsv_source = DsvSource(temp_path)
         data_lake = DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=data_lake_path)
         return Profiler(data_lake=data_lake)
     finally:
         try:
-            os.remove(temp_path)
+            temp_path.unlink()
         except Exception:
             pass
 

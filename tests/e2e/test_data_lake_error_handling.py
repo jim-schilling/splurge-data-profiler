@@ -1,7 +1,5 @@
-import os
-import tempfile
+import uuid
 import pytest
-import shutil
 from pathlib import Path
 
 from sqlalchemy import create_engine, MetaData, Table, Column as SAColumn, String
@@ -12,27 +10,20 @@ from splurge_data_profiler.source import DsvSource
 
 
 @pytest.fixture
-def temp_data_lake_path():
-    """Create a temporary directory for data lake testing."""
-    temp_dir = tempfile.mkdtemp()
-    data_lake_path = Path(temp_dir)
-
-    yield data_lake_path
-
-    # Cleanup
-    try:
-        shutil.rmtree(temp_dir)
-    except OSError:
-        pass
+def temp_data_lake_path(tmp_path: Path):
+    """Create a temporary directory for data lake testing under pytest tmp_path."""
+    data_lake_path = tmp_path / "data_lake"
+    data_lake_path.mkdir()
+    return data_lake_path
 
 
-def test_data_lake_factory_invalid_data_lake_path():
+def test_data_lake_factory_invalid_data_lake_path(tmp_path: Path):
     """Test DataLakeFactory with invalid data lake path."""
     # Create a temporary CSV file
-    temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
-    with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
-        f.write("id,name\n1,Alice\n2,Bob\n")
-    csv_path = Path(temp_path)
+    csv_path = tmp_path / f"{uuid.uuid4().hex}.csv"
+    csv_path.write_text("id,name\n1,Alice\n2,Bob\n", encoding="utf-8")
+
+    # no manual cleanup needed; pytest will cleanup tmp_path
 
     try:
         # Try to create data lake with invalid path
@@ -48,19 +39,15 @@ def test_data_lake_factory_invalid_data_lake_path():
         assert len(data_lake.column_names) == 2
 
     finally:
-        try:
-            os.remove(temp_path)
-        except Exception:
-            pass
+        # nothing to clean up; file is under tmp_path
+        pass
 
 
-def test_data_lake_factory_column_mismatch(temp_data_lake_path):
+def test_data_lake_factory_column_mismatch(temp_data_lake_path, tmp_path: Path):
     """Test DataLakeFactory with column mismatch between DSV and database."""
     # Create a CSV file with specific columns
-    temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
-    with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
-        f.write("id,name,email\n1,Alice,alice@example.com\n2,Bob,bob@example.com\n")
-    csv_path = Path(temp_path)
+    csv_path = tmp_path / f"{uuid.uuid4().hex}.csv"
+    csv_path.write_text("id,name,email\n1,Alice,alice@example.com\n2,Bob,bob@example.com\n", encoding="utf-8")
 
     try:
         # Create DSV source
@@ -94,18 +81,14 @@ def test_data_lake_factory_column_mismatch(temp_data_lake_path):
         assert "Column mismatch" in str(exc_info.value)
 
     finally:
-        try:
-            os.remove(temp_path)
-        except Exception:
-            pass
+        pass
 
 
-def test_data_lake_factory_empty_dsv_file():
+def test_data_lake_factory_empty_dsv_file(tmp_path: Path):
     """Test DataLakeFactory with completely empty DSV file."""
     # Create an empty CSV file
-    temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
-    # Don't write anything to the file
-    csv_path = Path(temp_path)
+    csv_path = tmp_path / f"{uuid.uuid4().hex}.csv"
+    csv_path.write_text("", encoding="utf-8")
 
     try:
         # Empty files should be handled gracefully with 0 columns
@@ -113,19 +96,14 @@ def test_data_lake_factory_empty_dsv_file():
         assert len(source.columns) == 0
 
     finally:
-        try:
-            os.remove(temp_path)
-        except Exception:
-            pass
+        pass
 
 
-def test_data_lake_factory_malformed_csv(temp_data_lake_path):
+def test_data_lake_factory_malformed_csv(temp_data_lake_path, tmp_path: Path):
     """Test DataLakeFactory with malformed CSV data."""
     # Create a CSV file with inconsistent column counts
-    temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
-    with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
-        f.write("id,name,email\n1,Alice\n2,Bob,bob@example.com,extra\n3\n")
-    csv_path = Path(temp_path)
+    csv_path = tmp_path / f"{uuid.uuid4().hex}.csv"
+    csv_path.write_text("id,name,email\n1,Alice\n2,Bob,bob@example.com,extra\n3\n", encoding="utf-8")
 
     try:
         dsv_source = DsvSource(csv_path)
@@ -137,19 +115,14 @@ def test_data_lake_factory_malformed_csv(temp_data_lake_path):
         assert isinstance(data_lake, DataLake)
 
     finally:
-        try:
-            os.remove(temp_path)
-        except Exception:
-            pass
+        pass
 
 
-def test_data_lake_factory_encoding_error():
+def test_data_lake_factory_encoding_error(tmp_path: Path):
     """Test DataLakeFactory with encoding issues."""
     # Create a CSV file with UTF-8 content but specify wrong encoding
-    temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
-    with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
-        f.write("id,name\n1,José\n2,François\n")
-    csv_path = Path(temp_path)
+    csv_path = tmp_path / f"{uuid.uuid4().hex}.csv"
+    csv_path.write_text("id,name\n1,José\n2,François\n", encoding="utf-8")
 
     try:
         # Try to create DSV source with wrong encoding
@@ -159,18 +132,14 @@ def test_data_lake_factory_encoding_error():
             DsvSource(csv_path, encoding="ascii")
 
     finally:
-        try:
-            os.remove(temp_path)
-        except Exception:
-            pass
+        pass
 
 
-def test_data_lake_factory_database_connection_error():
+def test_data_lake_factory_database_connection_error(tmp_path: Path):
     """Test DataLakeFactory with database connection error."""
     # Create a temporary CSV file
-    temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
-    with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
-        f.write("id,name\n1,Alice\n2,Bob\n")
+    csv_path = tmp_path / f"{uuid.uuid4().hex}.csv"
+    csv_path.write_text("id,name\n1,Alice\n2,Bob\n", encoding="utf-8")
 
     try:
         # Try to use an invalid database URL - this should fail at DbSource creation
@@ -181,19 +150,14 @@ def test_data_lake_factory_database_connection_error():
             DbSource(db_url=invalid_db_url, db_table="test_table")
 
     finally:
-        try:
-            os.remove(temp_path)
-        except Exception:
-            pass
+        pass
 
 
-def test_data_lake_factory_large_batch_size(temp_data_lake_path):
+def test_data_lake_factory_large_batch_size(temp_data_lake_path, tmp_path: Path):
     """Test DataLakeFactory with very large batch size."""
     # Create a CSV file with some data
-    temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
-    with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
-        f.write("id,name\n1,Alice\n2,Bob\n3,Charlie\n")
-    csv_path = Path(temp_path)
+    csv_path = tmp_path / f"{uuid.uuid4().hex}.csv"
+    csv_path.write_text("id,name\n1,Alice\n2,Bob\n3,Charlie\n", encoding="utf-8")
 
     try:
         dsv_source = DsvSource(csv_path)
@@ -205,19 +169,14 @@ def test_data_lake_factory_large_batch_size(temp_data_lake_path):
         assert len(data_lake.column_names) == 2
 
     finally:
-        try:
-            os.remove(temp_path)
-        except Exception:
-            pass
+        pass
 
 
-def test_data_lake_factory_zero_batch_size(temp_data_lake_path):
+def test_data_lake_factory_zero_batch_size(temp_data_lake_path, tmp_path: Path):
     """Test DataLakeFactory with zero batch size (edge case)."""
     # Create a CSV file with some data
-    temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
-    with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
-        f.write("id,name\n1,Alice\n2,Bob\n")
-    csv_path = Path(temp_path)
+    csv_path = tmp_path / f"{uuid.uuid4().hex}.csv"
+    csv_path.write_text("id,name\n1,Alice\n2,Bob\n", encoding="utf-8")
 
     try:
         dsv_source = DsvSource(csv_path)
@@ -239,7 +198,4 @@ def test_data_lake_factory_zero_batch_size(temp_data_lake_path):
             DataLakeFactory._stream_dsv_to_sqlite = orig_stream
 
     finally:
-        try:
-            os.remove(temp_path)
-        except Exception:
-            pass
+        pass

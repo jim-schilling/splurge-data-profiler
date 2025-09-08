@@ -6,7 +6,6 @@ using real file systems and databases.
 """
 
 import os
-import tempfile
 import pytest
 from pathlib import Path
 
@@ -18,20 +17,12 @@ from splurge_data_profiler.exceptions import FileProcessingError
 
 
 @pytest.fixture
-def temp_csv_file():
-    """Fixture to create a temporary CSV file."""
-    temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
-    with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
-        f.write("id,name,value\n1,Alice,10.5\n2,Bob,20.0\n3,Charlie,15.75\n")
-    test_file_path = Path(temp_path)
+def temp_csv_file(tmp_path: Path):
+    """Fixture to create a temporary CSV file using pytest tmp_path."""
+    test_file_path = tmp_path / "test.csv"
+    test_file_path.write_text("id,name,value\n1,Alice,10.5\n2,Bob,20.0\n3,Charlie,15.75\n", encoding="utf-8")
 
     yield test_file_path
-
-    # Cleanup
-    try:
-        os.remove(temp_path)
-    except Exception:
-        pass
 
 
 def test_dsv_source_real_file(temp_csv_file):
@@ -50,9 +41,9 @@ def test_dsv_source_real_file(temp_csv_file):
 
 
 @pytest.fixture
-def sqlite_db():
-    """Fixture to create a temporary SQLite database."""
-    db_fd, db_path = tempfile.mkstemp(suffix=".db")
+def sqlite_db(tmp_path: Path):
+    """Fixture to create a temporary SQLite database under pytest tmp_path."""
+    db_path = tmp_path / "test.db"
     db_url = f"sqlite:///{db_path}"
     db_schema = None  # SQLite does not use schemas
     db_table = "test_table"
@@ -80,11 +71,6 @@ def sqlite_db():
     # Cleanup
     try:
         engine.dispose()
-    except Exception:
-        pass
-    try:
-        os.close(db_fd)
-        os.remove(db_path)
     except Exception:
         pass
 
@@ -250,43 +236,35 @@ def test_streaming_large_dsv_file_performance(large_csv_and_data_lake):
     assert creation_time < 30.0, f"Data lake creation took {creation_time:.2f} seconds"
 
 
-def test_streaming_large_dsv_file_with_different_delimiters(large_csv_and_data_lake):
+def test_streaming_large_dsv_file_with_different_delimiters(large_csv_and_data_lake, tmp_path: Path):
     """Test streaming large DSV files with different delimiters."""
     import csv
 
     csv_path, data_lake_path = large_csv_and_data_lake
 
-    # Create a temporary pipe-delimited file
-    temp_fd, temp_path = tempfile.mkstemp(suffix=".txt")
-    pipe_csv_path = Path(temp_path)
+    # Create a pipe-delimited file under pytest tmp_path
+    pipe_csv_path = tmp_path / "pipe.csv"
 
-    try:
-        # Generate pipe-delimited data
-        with os.fdopen(temp_fd, "w", encoding="utf-8", newline="") as f:
-            writer = csv.writer(f, delimiter="|")
-            writer.writerow(["id", "name", "value"])
-            for i in range(1000):
-                writer.writerow([str(i), f"name_{i}", str(i * 1.5)])
+    # Generate pipe-delimited data
+    with open(pipe_csv_path, "w", encoding="utf-8", newline="") as f:
+        writer = csv.writer(f, delimiter="|")
+        writer.writerow(["id", "name", "value"])
+        for i in range(1000):
+            writer.writerow([str(i), f"name_{i}", str(i * 1.5)])
 
-        # Create DsvSource with pipe delimiter
-        dsv_source = DsvSource(pipe_csv_path, delimiter="|")
+    # Create DsvSource with pipe delimiter
+    dsv_source = DsvSource(pipe_csv_path, delimiter="|")
 
-        # Create data lake using factory
-        data_lake = DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=data_lake_path)
+    # Create data lake using factory
+    data_lake = DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=data_lake_path)
 
-        # Verify the data lake was created correctly
-        assert isinstance(data_lake, DataLake)
-        assert len(data_lake.column_names) == 3
-        assert data_lake.column_names == ["id", "name", "value"]
-
-    finally:
-        try:
-            os.remove(temp_path)
-        except Exception:
-            pass
+    # Verify the data lake was created correctly
+    assert isinstance(data_lake, DataLake)
+    assert len(data_lake.column_names) == 3
+    assert data_lake.column_names == ["id", "name", "value"]
 
 
-def test_streaming_large_dsv_file_error_handling():
+def test_streaming_large_dsv_file_error_handling(tmp_path: Path):
     """Test error handling when streaming large DSV files."""
     # Test with non-existent file
     non_existent_path = Path("/non/existent/file.csv")
@@ -295,20 +273,9 @@ def test_streaming_large_dsv_file_error_handling():
         DsvSource(non_existent_path)
 
     # Test with empty file
-    temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
-    empty_path = Path(temp_path)
+    empty_path = tmp_path / "empty.csv"
+    empty_path.write_text("", encoding="utf-8")
 
-    try:
-        # Create empty file
-        with os.fdopen(temp_fd, "w", encoding="utf-8") as _:
-            pass  # Empty file
-
-        # Empty files should be handled gracefully with 0 columns
-        dsv_source = DsvSource(empty_path)
-        assert len(dsv_source.columns) == 0
-
-    finally:
-        try:
-            os.remove(temp_path)
-        except Exception:
-            pass
+    # Empty files should be handled gracefully with 0 columns
+    dsv_source = DsvSource(empty_path)
+    assert len(dsv_source.columns) == 0

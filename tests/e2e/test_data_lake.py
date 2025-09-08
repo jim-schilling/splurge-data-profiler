@@ -1,5 +1,3 @@
-import os
-import tempfile
 import pytest
 
 from sqlalchemy import create_engine, MetaData, Column as SAColumn, String, Table
@@ -9,16 +7,15 @@ from splurge_data_profiler.data_lake import DataLake
 
 
 @pytest.fixture
-def temp_sqlite_data_lake():
-    """Create a temporary SQLite database and DataLake for testing."""
-    # Create a temporary SQLite database file
-    db_fd, db_path = tempfile.mkstemp(suffix=".db")
+def temp_sqlite_data_lake(tmp_path):
+    """Create a temporary SQLite database and DataLake for testing using pytest tmp_path."""
+    db_path = tmp_path / "t_test.db"
     db_url = f"sqlite:///{db_path}"
     db_table = "test_table"
     db_schema = None  # SQLite does not use schemas
 
     # Create table
-    engine = create_engine(db_url)
+    engine = create_engine(str(db_url))
     metadata = MetaData()
     Table(
         db_table,
@@ -41,15 +38,10 @@ def temp_sqlite_data_lake():
 
     yield data_lake, db_source, db_url, db_schema, db_table
 
-    # Cleanup
+    # Cleanup engine; file is managed by pytest tmp_path
     try:
         engine.dispose()
     except Exception:
-        pass
-    os.close(db_fd)
-    try:
-        os.remove(db_path)
-    except PermissionError:
         pass
 
 

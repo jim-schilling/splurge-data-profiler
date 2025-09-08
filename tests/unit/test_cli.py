@@ -1,9 +1,7 @@
 import subprocess
 import sys
 import pytest
-import tempfile
 import json
-import os
 from pathlib import Path
 from unittest.mock import patch
 
@@ -17,59 +15,9 @@ def run_cli(args):
     return result
 
 
-@pytest.fixture(autouse=True)
-def _redirect_tempfile_to_tmp_path(tmp_path, monkeypatch):
-    """Redirect common tempfile functions to create files under pytest's tmp_path.
-
-    This avoids changing many tests that call tempfile.* directly and ensures
-    all temporary artifacts are created inside pytest-managed directories.
-    """
-    import tempfile as _tempfile
-
-    # Save originals
-    _orig_named = _tempfile.NamedTemporaryFile
-    _orig_mkdtemp = _tempfile.mkdtemp
-    _orig_mkstemp = _tempfile.mkstemp
-    _orig_mktemp = getattr(_tempfile, "mktemp", None)
-    _orig_TemporaryDirectory = getattr(_tempfile, "TemporaryDirectory", None)
-
-    def _named(*args, **kwargs):
-        if "dir" not in kwargs:
-            kwargs["dir"] = str(tmp_path)
-        return _orig_named(*args, **kwargs)
-
-    def _mkdtemp(*args, **kwargs):
-        if "dir" not in kwargs:
-            kwargs["dir"] = str(tmp_path)
-        return _orig_mkdtemp(*args, **kwargs)
-
-    def _mkstemp(*args, **kwargs):
-        if "dir" not in kwargs:
-            kwargs["dir"] = str(tmp_path)
-        return _orig_mkstemp(*args, **kwargs)
-
-    if _orig_mktemp:
-        def _mktemp(*args, **kwargs):
-            if "dir" not in kwargs:
-                kwargs["dir"] = str(tmp_path)
-            return _orig_mktemp(*args, **kwargs)
-
-    if _orig_TemporaryDirectory:
-        def _temporary_directory(*args, **kwargs):
-            if "dir" not in kwargs:
-                kwargs["dir"] = str(tmp_path)
-            return _orig_TemporaryDirectory(*args, **kwargs)
-
-    # Apply monkeypatches
-    monkeypatch.setattr(_tempfile, "NamedTemporaryFile", _named)
-    monkeypatch.setattr(_tempfile, "mkdtemp", _mkdtemp)
-    monkeypatch.setattr(_tempfile, "mkstemp", _mkstemp)
-    if _orig_mktemp:
-        monkeypatch.setattr(_tempfile, "mktemp", _mktemp)
-    if _orig_TemporaryDirectory:
-        monkeypatch.setattr(_tempfile, "TemporaryDirectory", _temporary_directory)
-
-    yield
+# NOTE: The autouse tempfile monkeypatch was removed to require tests to opt-in
+# to any monkeypatching. Tests should use pytest's `tmp_path`/`tmp_path_factory`
+# fixtures directly; remaining tests are being converted incrementally.
 
 
 def test_cli_help():
@@ -91,159 +39,107 @@ def test_cli_invalid_command():
 
 
 class TestCliFunctions:
-    def test_load_config_valid(self):
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            config = {"data_lake_path": "./test_lake", "dsv": {"delimiter": "|", "strip": False}}
-            json.dump(config, f)
-            config_path = Path(f.name)
+    def test_load_config_valid(self, tmp_path: Path):
+        config = {"data_lake_path": "./test_lake", "dsv": {"delimiter": "|", "strip": False}}
+        config_path = tmp_path / "config.json"
+        config_path.write_text(json.dumps(config), encoding="utf-8")
 
-        try:
-            loaded_config = load_config(config_path)
-            assert loaded_config["data_lake_path"] == "./test_lake"
-            assert loaded_config["dsv"]["delimiter"] == "|"
-            assert loaded_config["dsv"]["strip"] is False
-        finally:
-            os.unlink(config_path)
+        loaded_config = load_config(config_path)
+        assert loaded_config["data_lake_path"] == "./test_lake"
+        assert loaded_config["dsv"]["delimiter"] == "|"
+        assert loaded_config["dsv"]["strip"] is False
 
     def test_load_config_file_not_found(self):
         with pytest.raises(ConfigurationError):
             load_config(Path("nonexistent.json"))
 
-    def test_load_config_invalid_json(self):
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            f.write('{"invalid": json}')
-            config_path = Path(f.name)
+    def test_load_config_invalid_json(self, tmp_path: Path):
+        config_path = tmp_path / "invalid.json"
+        config_path.write_text('{"invalid": json}', encoding="utf-8")
 
-        try:
-            with pytest.raises(ConfigurationError):
-                load_config(config_path)
-        finally:
-            os.unlink(config_path)
+        with pytest.raises(ConfigurationError):
+            load_config(config_path)
 
-    def test_load_config_missing_required_keys(self):
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            config = {"dsv": {"delimiter": ","}}  # Missing data_lake_path
-            json.dump(config, f)
-            config_path = Path(f.name)
+    def test_load_config_missing_required_keys(self, tmp_path: Path):
+        config = {"dsv": {"delimiter": ","}}  # Missing data_lake_path
+        config_path = tmp_path / "incomplete.json"
+        config_path.write_text(json.dumps(config), encoding="utf-8")
 
-        try:
-            with pytest.raises(ConfigurationError, match="Missing required configuration keys"):
-                load_config(config_path)
-        finally:
-            os.unlink(config_path)
+        with pytest.raises(ConfigurationError, match="Missing required configuration keys"):
+            load_config(config_path)
 
-    def test_create_dsv_source_from_config_defaults(self):
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
-            f.write("id,name,value\n1,Alice,10.5\n2,Bob,20.0\n")
-            dsv_path = Path(f.name)
+    def test_create_dsv_source_from_config_defaults(self, tmp_path: Path):
+        dsv_path = tmp_path / "data.csv"
+        dsv_path.write_text("id,name,value\n1,Alice,10.5\n2,Bob,20.0\n", encoding="utf-8")
 
-        try:
-            config = {"data_lake_path": "./test"}
-            result = create_dsv_source_from_config(dsv_path, config)
-            assert isinstance(result, DsvSource)
-            assert result.file_path == dsv_path
-            assert result.delimiter == ","
-            assert result.strip
-            assert result.bookend == '"'
-            assert result.bookend_strip
-            assert result.encoding == "utf-8"
-            assert result.header_rows == 1
-            assert len(result.columns) == 3
-        finally:
-            os.unlink(dsv_path)
+        config = {"data_lake_path": "./test"}
+        result = create_dsv_source_from_config(dsv_path, config)
+        assert isinstance(result, DsvSource)
+        assert result.file_path == dsv_path
+        assert result.delimiter == ","
+        assert result.strip
+        assert result.bookend == '"'
+        assert result.bookend_strip
+        assert result.encoding == "utf-8"
+        assert result.header_rows == 1
+        assert len(result.columns) == 3
 
-    def test_create_dsv_source_from_config_custom(self):
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
-            f.write(
-                "header1|header2|header3\nskip1|skip2|skip3\nid|name|value\n1|Alice|10.5\n2|Bob|20.0\nfooter1|footer2|footer3\n"
-            )
-            dsv_path = Path(f.name)
+    def test_create_dsv_source_from_config_custom(self, tmp_path: Path):
+        dsv_path = tmp_path / "custom.csv"
+        dsv_path.write_text(
+            "header1|header2|header3\nskip1|skip2|skip3\nid|name|value\n1|Alice|10.5\n2|Bob|20.0\nfooter1|footer2|footer3\n",
+            encoding="utf-8",
+        )
 
-        try:
-            config = {
-                "data_lake_path": "./test",
-                "dsv": {
-                    "delimiter": "|",
-                    "strip": False,
-                    "bookend": "'",
-                    "bookend_strip": False,
-                    "encoding": "latin-1",
-                    "skip_header_rows": 2,
-                    "skip_footer_rows": 1,
-                    "header_rows": 1,
-                    "skip_empty_rows": False,
-                },
-            }
+        config = {
+            "data_lake_path": "./test",
+            "dsv": {
+                "delimiter": "|",
+                "strip": False,
+                "bookend": "'",
+                "bookend_strip": False,
+                "encoding": "latin-1",
+                "skip_header_rows": 2,
+                "skip_footer_rows": 1,
+                "header_rows": 1,
+                "skip_empty_rows": False,
+            },
+        }
 
-            result = create_dsv_source_from_config(dsv_path, config)
-            assert isinstance(result, DsvSource)
-            assert result.delimiter == "|"
-            assert not result.strip
-            assert result.bookend == "'"
-            assert result.encoding == "latin-1"
-            assert len(result.columns) == 3
-        finally:
-            os.unlink(dsv_path)
+        result = create_dsv_source_from_config(dsv_path, config)
+        assert isinstance(result, DsvSource)
+        assert result.delimiter == "|"
+        assert not result.strip
+        assert result.bookend == "'"
+        assert result.encoding == "latin-1"
+        assert len(result.columns) == 3
 
-    def test_create_sample_config(self):
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            output_path = Path(f.name)
+    def test_create_sample_config(self, tmp_path: Path):
+        output_path = tmp_path / "sample.json"
 
-        try:
-            with patch("builtins.print") as mock_print:
-                create_sample_config(output_path)
-                assert output_path.exists()
-                with open(output_path, "r") as f:
-                    config = json.load(f)
-                assert config["data_lake_path"] == "./data_lake"
-                mock_print.assert_called_once()
-        finally:
-            os.unlink(output_path)
+        with patch("builtins.print") as mock_print:
+            create_sample_config(output_path)
+            assert output_path.exists()
+            with open(output_path, "r") as f:
+                config = json.load(f)
+            assert config["data_lake_path"] == "./data_lake"
+            mock_print.assert_called_once()
 
-    def test_run_profiling_success(self):
-        temp_dir = tempfile.mkdtemp()
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
-            f.write("id,name,value\n1,Alice,10.5\n2,Bob,20.0\n3,Charlie,15.75\n")
-            dsv_path = Path(f.name)
+    def test_run_profiling_success(self, tmp_path: Path):
+        temp_dir = tmp_path / "lake"
+        temp_dir.mkdir()
 
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            config = {"data_lake_path": temp_dir}
-            json.dump(config, f)
-            config_path = Path(f.name)
+        dsv_path = tmp_path / "input.csv"
+        dsv_path.write_text("id,name,value\n1,Alice,10.5\n2,Bob,20.0\n3,Charlie,15.75\n", encoding="utf-8")
 
-        try:
-            with patch("builtins.print") as mock_print:
-                run_profiling(dsv_path=dsv_path, config_path=config_path, verbose=True)
-            print_calls = [call[0][0] for call in mock_print.call_args_list]
-            assert any("Loading configuration" in str(call) for call in print_calls)
-        finally:
-            try:
-                os.unlink(dsv_path)
-            except (OSError, PermissionError):
-                pass
-            try:
-                os.unlink(config_path)
-            except (OSError, PermissionError):
-                pass
-            import time
+        config_path = tmp_path / "config.json"
+        with open(config_path, "w", encoding="utf-8") as cf:
+            json.dump({"data_lake_path": str(temp_dir)}, cf)
 
-            time.sleep(0.1)
-            try:
-                import shutil
-
-                shutil.rmtree(temp_dir)
-            except (OSError, PermissionError):
-                try:
-                    for root, dirs, files in os.walk(temp_dir, topdown=False):
-                        for file in files:
-                            try:
-                                os.unlink(os.path.join(root, file))
-                            except (OSError, PermissionError):
-                                pass
-                    os.rmdir(temp_dir)
-                except (OSError, PermissionError):
-                    pass
-
+        with patch("builtins.print") as mock_print:
+            run_profiling(dsv_path=dsv_path, config_path=config_path, verbose=True)
+        print_calls = [call[0][0] for call in mock_print.call_args_list]
+        assert any("Loading configuration" in str(call) for call in print_calls)
     @patch("splurge_data_profiler.cli.load_config")
     def test_run_profiling_config_error(self, mock_load_config):
         mock_load_config.side_effect = ConfigurationError("Config not found")
@@ -254,124 +150,87 @@ class TestCliFunctions:
 
 
 class TestCliCommands:
-    def test_cli_create_config_command(self):
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            output_path = f.name
+    def test_cli_create_config_command(self, tmp_path: Path):
+        # Use pytest tmp_path instead of tempfile
+        output_path = tmp_path / "output.json"
+        result = run_cli(["create-config", str(output_path)])
+        assert result.returncode == 0
+        assert "Sample configuration created" in result.stdout
+        with open(output_path, "r", encoding="utf-8") as f:
+            config = json.load(f)
+        assert "data_lake_path" in config
 
-        try:
-            result = run_cli(["create-config", output_path])
-            assert result.returncode == 0
-            assert "Sample configuration created" in result.stdout
-            with open(output_path, "r") as f:
-                config = json.load(f)
-            assert "data_lake_path" in config
-        finally:
-            os.unlink(output_path)
+    def test_cli_profile_command_missing_file(self, tmp_path: Path):
+        config_path = tmp_path / "config.json"
+        config_path.write_text(json.dumps({"data_lake_path": "./test"}), encoding="utf-8")
 
-    def test_cli_profile_command_missing_file(self):
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            config = {"data_lake_path": "./test"}
+        result = run_cli(["profile", "nonexistent.csv", str(config_path)])
+        assert result.returncode != 0
+
+    def test_cli_profile_command_missing_config(self, tmp_path: Path):
+        dsv_path = tmp_path / "input.csv"
+        dsv_path.write_text("id,name\n1,test\n", encoding="utf-8")
+
+        result = run_cli(["profile", str(dsv_path), "nonexistent.json"])
+        assert result.returncode != 0
+
+    def test_cli_profile_command_success(self, tmp_path: Path):
+        dsv_path = tmp_path / "input.csv"
+        dsv_path.write_text("id,name\n1,test\n2,example\n", encoding="utf-8")
+
+        config_path = tmp_path / "config.json"
+        config = {"data_lake_path": "./test_lake"}
+        config_path.write_text(json.dumps(config), encoding="utf-8")
+
+        data_lake_dir = tmp_path / "lake"
+        data_lake_dir.mkdir()
+
+        with open(config_path, "w", encoding="utf-8") as f:
+            config["data_lake_path"] = str(data_lake_dir)
             json.dump(config, f)
-            config_path = f.name
 
-        try:
-            result = run_cli(["profile", "nonexistent.csv", config_path])
-            assert result.returncode != 0
-        finally:
-            os.unlink(config_path)
+        result = run_cli(["profile", str(dsv_path), str(config_path)])
+        assert result.returncode == 0
+        assert "PROFILING RESULTS" in result.stdout
 
-    def test_cli_profile_command_missing_config(self):
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
-            f.write("id,name\n1,test\n")
-            dsv_path = f.name
+    def test_cli_profile_command_verbose(self, tmp_path: Path):
+        dsv_path = tmp_path / "input_verbose.csv"
+        dsv_path.write_text("id,name\n1,test\n", encoding="utf-8")
 
-        try:
-            result = run_cli(["profile", dsv_path, "nonexistent.json"])
-            assert result.returncode != 0
-        finally:
-            os.unlink(dsv_path)
+        config_path = tmp_path / "config_verbose.json"
+        config = {"data_lake_path": "./test_lake"}
+        config_path.write_text(json.dumps(config), encoding="utf-8")
 
-    def test_cli_profile_command_success(self):
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
-            f.write("id,name\n1,test\n2,example\n")
-            dsv_path = f.name
+        data_lake_dir = tmp_path / "lake_verbose"
+        data_lake_dir.mkdir()
 
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            config = {"data_lake_path": "./test_lake"}
+        with open(config_path, "w", encoding="utf-8") as f:
+            config["data_lake_path"] = str(data_lake_dir)
             json.dump(config, f)
-            config_path = f.name
 
-        temp_dir = tempfile.mkdtemp()
-
-        try:
-            with open(config_path, "w") as f:
-                config["data_lake_path"] = temp_dir
-                json.dump(config, f)
-
-            result = run_cli(["profile", dsv_path, config_path])
-            assert result.returncode == 0
-            assert "PROFILING RESULTS" in result.stdout
-        finally:
-            os.unlink(dsv_path)
-            os.unlink(config_path)
-            import shutil
-
-            shutil.rmtree(temp_dir)
-
-    def test_cli_profile_command_verbose(self):
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
-            f.write("id,name\n1,test\n")
-            dsv_path = f.name
-
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            config = {"data_lake_path": "./test_lake"}
-            json.dump(config, f)
-            config_path = f.name
-
-        temp_dir = tempfile.mkdtemp()
-
-        try:
-            with open(config_path, "w") as f:
-                config["data_lake_path"] = temp_dir
-                json.dump(config, f)
-
-            result = run_cli(["profile", dsv_path, config_path, "--verbose"])
-            assert result.returncode == 0
-            assert "Loading configuration" in result.stdout
-        finally:
-            os.unlink(dsv_path)
-            os.unlink(config_path)
-            import shutil
-
-            shutil.rmtree(temp_dir)
+        result = run_cli(["profile", str(dsv_path), str(config_path), "--verbose"])
+        assert result.returncode == 0
+        assert "Loading configuration" in result.stdout
 
 
-def test_cli_argument_validation_additional():
+def test_cli_argument_validation_additional(tmp_path: Path):
     # This mirrors additional argument validation checks from the root tests
     result = run_cli(["profile", "nonexistent.csv", "config.json"])
     assert result.returncode != 0
     # create dummy csv to verify config missing check
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
-        f.write("id,name\n1,test\n")
-        dummy_csv = f.name
+    dummy_csv = tmp_path / "dummy.csv"
+    dummy_csv.write_text("id,name\n1,test\n", encoding="utf-8")
 
-    try:
-        result = run_cli(["profile", dummy_csv, "nonexistent.json"])
-        assert result.returncode != 0
-    finally:
-        os.unlink(dummy_csv)
+    result = run_cli(["profile", str(dummy_csv), "nonexistent.json"])
+    assert result.returncode != 0
 
 
-def test_cli_argument_validation():
+def test_cli_argument_validation(tmp_path: Path):
     result = run_cli(["profile", "nonexistent.csv", "config.json"])
     assert result.returncode != 0
 
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
-        f.write("id,name\n1,test\n")
-        dummy_csv = f.name
+    dummy_csv = tmp_path / "dummy2.csv"
+    dummy_csv.write_text("id,name\n1,test\n", encoding="utf-8")
 
-    try:
-        result = run_cli(["profile", dummy_csv, "nonexistent.json"])
-        assert result.returncode != 0
-    finally:
-        os.unlink(dummy_csv)
+    result = run_cli(["profile", str(dummy_csv), "nonexistent.json"])
+    assert result.returncode != 0

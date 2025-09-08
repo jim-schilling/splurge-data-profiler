@@ -6,7 +6,8 @@ validating its initialization, properties, and core functionality.
 """
 
 import os
-import tempfile
+import pytest
+from pathlib import Path
 
 from sqlalchemy import create_engine, MetaData, Table as SATable, Column as SAColumn, String
 
@@ -14,129 +15,100 @@ from splurge_data_profiler.source import DbSource
 from splurge_data_profiler.exceptions import DatabaseError
 
 
-class TestDbSource:
-    """Test cases for DbSource class."""
+@pytest.fixture
+def db_file(tmp_path: Path):
+    db_path = tmp_path / "test.db"
+    db_url = f"sqlite:///{db_path}"
 
-    def setup_method(self) -> None:
-        """Set up test fixtures."""
-        # Create a temporary SQLite database file
-        self.db_fd, self.db_path = tempfile.mkstemp(suffix=".db")
-        self.db_url = f"sqlite:///{self.db_path}"
-        self.db_table = "test_table"
-        self.db_schema = None  # SQLite does not use schemas
-        # Create table
-        self.engine = create_engine(self.db_url)
-        metadata = MetaData()
-        SATable(
-            self.db_table,
-            metadata,
-            SAColumn("id", String, primary_key=True),
-            SAColumn("name", String, nullable=True),
-        )
-        # Create a second table for equality testing
-        SATable(
-            "different_table",
-            metadata,
-            SAColumn("id", String, primary_key=True),
-            SAColumn("description", String, nullable=True),
-        )
-        metadata.create_all(self.engine)
+    # Create table schema
+    engine = create_engine(db_url)
+    metadata = MetaData()
+    SATable(
+        "test_table",
+        metadata,
+        SAColumn("id", String, primary_key=True),
+        SAColumn("name", String, nullable=True),
+    )
+    SATable(
+        "different_table",
+        metadata,
+        SAColumn("id", String, primary_key=True),
+        SAColumn("description", String, nullable=True),
+    )
+    metadata.create_all(engine)
+    engine.dispose()
 
-    def teardown_method(self) -> None:
-        """Clean up test fixtures."""
-        # Ensure engine is disposed before removing file
-        try:
-            self.engine.dispose()
-        except Exception:
-            pass
-        os.close(self.db_fd)
-        try:
-            os.remove(self.db_path)
-        except PermissionError:
-            # File might still be in use, that's okay for tests
-            pass
+    yield db_url
 
-    def test_db_source_initialization_connection_error(self) -> None:
-        """Test DbSource initialization with invalid database URL."""
-        try:
-            DbSource(db_url="sqlite:///nonexistent.db", db_schema=None, db_table="nonexistent_table")
-            assert False, "Expected DatabaseError was not raised"
-        except DatabaseError:
-            pass
+    # Teardown: remove file if it exists
+    try:
+        os.remove(db_path)
+    except Exception:
+        pass
 
-    def test_db_source_properties(self) -> None:
-        """Test DbSource properties."""
-        source = DbSource(db_url=self.db_url, db_schema=self.db_schema, db_table=self.db_table)
 
-        assert source.db_url == self.db_url
-        assert source.db_schema == self.db_schema
-        assert source.db_table == self.db_table
-        assert len(source.columns) == 2
-        assert source.columns[0].name == "id"
-        assert source.columns[1].name == "name"
+def test_db_source_initialization_connection_error() -> None:
+    """Test DbSource initialization with invalid database URL."""
+    with pytest.raises(DatabaseError):
+        DbSource(db_url="sqlite:///nonexistent.db", db_schema=None, db_table="nonexistent_table")
 
-    def test_db_source_string_representation(self) -> None:
-        """Test DbSource string representation."""
-        # Create a temporary database for this test
-        db_fd, db_path = tempfile.mkstemp(suffix=".db")
-        db_url = f"sqlite:///{db_path}"
 
-        try:
-            # Create a simple table
-            engine = create_engine(db_url)
-            metadata = MetaData()
-            SATable(
-                "test_table",
-                metadata,
-                SAColumn("id", String, primary_key=True),
-            )
-            metadata.create_all(engine)
-            engine.dispose()
+def test_db_source_properties(db_file: str) -> None:
+    """Test DbSource properties."""
+    db_url = db_file
+    source = DbSource(db_url=db_url, db_schema=None, db_table="test_table")
 
-            source = DbSource(db_url=db_url, db_schema=None, db_table="test_table")
+    assert source.db_url == db_url
+    assert source.db_schema is None
+    assert source.db_table == "test_table"
+    assert len(source.columns) == 2
+    assert source.columns[0].name == "id"
+    assert source.columns[1].name == "name"
 
-            # Test the new DbSource __str__ method
-            expected_str = f"DbSource(db_url={db_url}, schema=None, table=test_table, columns=1)"
-            assert str(source) == expected_str
 
-        finally:
-            # Ensure engine is disposed before removing file
-            try:
-                engine.dispose()
-            except Exception:
-                pass
-            os.close(db_fd)
-            try:
-                os.remove(db_path)
-            except PermissionError:
-                # File might still be in use, that's okay for tests
-                pass
+def test_db_source_string_representation(tmp_path: Path) -> None:
+    """Test DbSource string representation."""
+    db_path = tmp_path / "repr_test.db"
+    db_url = f"sqlite:///{db_path}"
 
-    def test_db_source_equality(self) -> None:
-        """Test DbSource equality comparison."""
-        source1 = DbSource(db_url=self.db_url, db_schema=self.db_schema, db_table=self.db_table)
-        source2 = DbSource(db_url=self.db_url, db_schema=self.db_schema, db_table=self.db_table)
+    engine = create_engine(db_url)
+    metadata = MetaData()
+    SATable(
+        "test_table",
+        metadata,
+        SAColumn("id", String, primary_key=True),
+    )
+    metadata.create_all(engine)
+    engine.dispose()
 
-        # Create a different source with different table name but same database
-        source3 = DbSource(db_url=self.db_url, db_schema=self.db_schema, db_table="different_table")
+    source = DbSource(db_url=db_url, db_schema=None, db_table="test_table")
 
-        assert source1 == source2
-        assert source1 != source3
+    expected_str = f"DbSource(db_url={db_url}, schema=None, table=test_table, columns=1)"
+    assert str(source) == expected_str
 
-    def test_db_source_equality_different_type(self) -> None:
-        """Test DbSource equality with different type."""
-        source = DbSource(db_url=self.db_url, db_schema=self.db_schema, db_table=self.db_table)
-        other = "not a db source"
 
-        assert source != other
+def test_db_source_equality(db_file: str) -> None:
+    db_url = db_file
+    source1 = DbSource(db_url=db_url, db_schema=None, db_table="test_table")
+    source2 = DbSource(db_url=db_url, db_schema=None, db_table="test_table")
 
-    def test_db_source_repr_representation(self) -> None:
-        """Test DbSource repr representation."""
-        source = DbSource(db_url=self.db_url, db_schema=self.db_schema, db_table=self.db_table)
+    source3 = DbSource(db_url=db_url, db_schema=None, db_table="different_table")
 
-        # Test that repr shows detailed information
-        repr_str = repr(source)
-        assert "DbSource" in repr_str
-        assert self.db_url in repr_str
-        assert self.db_table in repr_str
-        assert "columns=" in repr_str
+    assert source1 == source2
+    assert source1 != source3
+
+
+def test_db_source_equality_different_type(db_file: str) -> None:
+    source = DbSource(db_url=db_file, db_schema=None, db_table="test_table")
+    other = "not a db source"
+
+    assert source != other
+
+
+def test_db_source_repr_representation(db_file: str) -> None:
+    source = DbSource(db_url=db_file, db_schema=None, db_table="test_table")
+
+    repr_str = repr(source)
+    assert "DbSource" in repr_str
+    assert "test_table" in repr_str
+    assert "columns=" in repr_str

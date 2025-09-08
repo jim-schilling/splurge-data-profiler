@@ -1,11 +1,9 @@
 import os
-import tempfile
 import pytest
 import re
 from pathlib import Path
 from datetime import datetime, date, time, timedelta
 import csv
-import shutil
 from sqlalchemy import create_engine, inspect, text, MetaData, Table, Column, String
 
 from splurge_data_profiler.source import DataType, DsvSource, DbSource
@@ -14,28 +12,58 @@ from splurge_data_profiler.profiler import Profiler
 from splurge_data_profiler.exceptions import DatabaseError
 
 
+@pytest.fixture(autouse=True)
+def _setup_profiler_instance(request, tmp_path: Path):
+    """Prepare TestProfilerComprehensive instances to use pytest's tmp_path.
+
+    This fixture only acts when the running test is a method on
+    `TestProfilerComprehensive`. It creates a CSV file and a data lake
+    directory under `tmp_path`, sets instance attributes used by the
+    class's methods, and calls the existing `_generate_comprehensive_csv`
+    helper which writes to the provided file descriptor.
+    """
+    inst = getattr(request, "instance", None)
+    # Only apply for the target test class
+    if inst is None or inst.__class__.__name__ != "TestProfilerComprehensive":
+        yield
+        return
+
+    import os
+
+    # Create data lake dir under tmp_path
+    temp_dir = tmp_path / "lake"
+    temp_dir.mkdir(exist_ok=True)
+    inst.temp_dir = str(temp_dir)
+    inst.data_lake_path = Path(inst.temp_dir)
+
+    # Create CSV file path and open a real fd so existing generation code (os.fdopen)
+    # continues to work unchanged.
+    csv_path = tmp_path / "comprehensive.csv"
+    fd = os.open(str(csv_path), os.O_WRONLY | os.O_CREAT)
+    inst.temp_fd = fd
+    inst.temp_path = str(csv_path)
+    inst.csv_path = Path(inst.temp_path)
+
+    # Call the class helper to populate the CSV
+    inst._generate_comprehensive_csv()
+
+    # Build DsvSource, DataLake, and Profiler as the original setup did
+    inst.dsv_source = DsvSource(inst.csv_path, delimiter="|", bookend='"')
+    inst.data_lake = DataLakeFactory.from_dsv_source(dsv_source=inst.dsv_source, data_lake_path=inst.data_lake_path)
+    inst.profiler = Profiler(data_lake=inst.data_lake)
+
+    yield
+
+    # Teardown: ensure fd closed; tmp_path cleanup handled by pytest
+    try:
+        os.close(fd)
+    except Exception:
+        pass
+
+
 class TestProfilerComprehensive:
     """Test comprehensive profiling functionality."""
-
-    def setup_method(self) -> None:
-        """Set up test fixtures before each test method."""
-        # Create temporary directory for data lake
-        self.temp_dir = tempfile.mkdtemp()
-        self.data_lake_path = Path(self.temp_dir)
-
-        # Create temporary CSV file
-        self.temp_fd, self.temp_path = tempfile.mkstemp(suffix=".csv")
-        self.csv_path = Path(self.temp_path)
-
-        # Generate comprehensive test data (reduced from 15000 to 1000 rows)
-        self._generate_comprehensive_csv()
-
-        # Create DsvSource and DataLake
-        self.dsv_source = DsvSource(self.csv_path, delimiter="|", bookend='"')
-        self.data_lake = DataLakeFactory.from_dsv_source(dsv_source=self.dsv_source, data_lake_path=self.data_lake_path)
-
-        # Create a fresh Profiler instance for each test
-        self.profiler = Profiler(data_lake=self.data_lake)
+    # setup is handled by module autouse fixture `_setup_profiler_instance`
 
     def _generate_comprehensive_csv(self) -> None:
         """Generate a comprehensive CSV file with all data types and 1000 rows."""
@@ -506,11 +534,10 @@ class TestProfilerComprehensive:
             if original:
                 assert original == cast_value
 
-    def test_profiler_empty_table(self):
+    def test_profiler_empty_table(self, tmp_path: Path):
         """Test profiling on an empty table."""
-        # Create a new empty table in a separate database
-        temp_db_path = tempfile.mktemp(suffix=".sqlite")
-        db_url = f"sqlite:///{temp_db_path}"
+        db_path = tmp_path / "empty_table.sqlite"
+        db_url = f"sqlite:///{db_path}"
         engine = create_engine(db_url)
         empty_table_name = "empty_table"
         metadata = MetaData()
@@ -522,27 +549,19 @@ class TestProfilerComprehensive:
         metadata.create_all(engine)
         engine.dispose()
 
-        try:
-            # Create a DataLake for the empty table
-            db_source = DbSource(db_url=db_url, db_schema=None, db_table=empty_table_name)
-            data_lake = DataLake(db_source=db_source)
-            profiler = Profiler(data_lake=data_lake)
-            # Should not raise, but profiled_columns should be empty or TEXT
-            profiler.profile(sample_size=10)
-            for col in profiler.profiled_columns:
-                assert col.inferred_type == DataType.TEXT
-        finally:
-            # Clean up temporary database
-            try:
-                os.remove(temp_db_path)
-            except OSError:
-                pass
+        # Create a DataLake for the empty table
+        db_source = DbSource(db_url=db_url, db_schema=None, db_table=empty_table_name)
+        data_lake = DataLake(db_source=db_source)
+        profiler = Profiler(data_lake=data_lake)
+        # Should not raise, but profiled_columns should be empty or TEXT
+        profiler.profile(sample_size=10)
+        for col in profiler.profiled_columns:
+            assert col.inferred_type == DataType.TEXT
 
-    def test_profiler_all_nulls(self):
+    def test_profiler_all_nulls(self, tmp_path: Path):
         """Test profiling on a table with only nulls."""
-        # Create a new table in a separate database
-        temp_db_path = tempfile.mktemp(suffix=".sqlite")
-        db_url = f"sqlite:///{temp_db_path}"
+        db_path = tmp_path / "null_table.sqlite"
+        db_url = f"sqlite:///{db_path}"
         engine = create_engine(db_url)
         null_table_name = "null_table"
         metadata = MetaData()
@@ -558,34 +577,26 @@ class TestProfilerComprehensive:
             conn.commit()
         engine.dispose()
 
-        try:
-            db_source = DbSource(db_url=db_url, db_schema=None, db_table=null_table_name)
-            data_lake = DataLake(db_source=db_source)
-            profiler = Profiler(data_lake=data_lake)
-            profiler.profile(sample_size=10)
+        db_source = DbSource(db_url=db_url, db_schema=None, db_table=null_table_name)
+        data_lake = DataLake(db_source=db_source)
+        profiler = Profiler(data_lake=data_lake)
+        profiler.profile(sample_size=10)
 
-            # Check that we have the expected columns
-            assert len(profiler.profiled_columns) == 2
+        # Check that we have the expected columns
+        assert len(profiler.profiled_columns) == 2
 
-            # Find the value column (which should be all nulls and infer as TEXT)
-            value_col = next(col for col in profiler.profiled_columns if col.name == "value")
-            assert value_col.inferred_type == DataType.TEXT
+        # Find the value column (which should be all nulls and infer as TEXT)
+        value_col = next(col for col in profiler.profiled_columns if col.name == "value")
+        assert value_col.inferred_type == DataType.TEXT
 
-            # The id column should be inferred as INTEGER since it contains numeric strings
-            id_col = next(col for col in profiler.profiled_columns if col.name == "id")
-            assert id_col.inferred_type == DataType.INTEGER
-        finally:
-            # Clean up temporary database
-            try:
-                os.remove(temp_db_path)
-            except OSError:
-                pass
+        # The id column should be inferred as INTEGER since it contains numeric strings
+        id_col = next(col for col in profiler.profiled_columns if col.name == "id")
+        assert id_col.inferred_type == DataType.INTEGER
 
-    def test_profiler_mixed_types(self):
+    def test_profiler_mixed_types(self, tmp_path: Path):
         """Test profiling on a table with mixed types."""
-        # Create a new table in a separate database
-        temp_db_path = tempfile.mktemp(suffix=".sqlite")
-        db_url = f"sqlite:///{temp_db_path}"
+        db_path = tmp_path / "mixed_table.sqlite"
+        db_url = f"sqlite:///{db_path}"
         engine = create_engine(db_url)
         mixed_table_name = "mixed_table"
         metadata = MetaData()
@@ -609,28 +620,21 @@ class TestProfilerComprehensive:
             conn.commit()
         engine.dispose()
 
-        try:
-            db_source = DbSource(db_url=db_url, db_schema=None, db_table=mixed_table_name)
-            data_lake = DataLake(db_source=db_source)
-            profiler = Profiler(data_lake=data_lake)
-            profiler.profile(sample_size=10)
+        db_source = DbSource(db_url=db_url, db_schema=None, db_table=mixed_table_name)
+        data_lake = DataLake(db_source=db_source)
+        profiler = Profiler(data_lake=data_lake)
+        profiler.profile(sample_size=10)
 
-            # Check that we have the expected columns
-            assert len(profiler.profiled_columns) == 2
+        # Check that we have the expected columns
+        assert len(profiler.profiled_columns) == 2
 
-            # The value column should be inferred as TEXT since it contains mixed types
-            value_col = next(col for col in profiler.profiled_columns if col.name == "value")
-            assert value_col.inferred_type == DataType.TEXT
+        # The value column should be inferred as TEXT since it contains mixed types
+        value_col = next(col for col in profiler.profiled_columns if col.name == "value")
+        assert value_col.inferred_type == DataType.TEXT
 
-            # The id column should be inferred as INTEGER since it contains numeric strings
-            id_col = next(col for col in profiler.profiled_columns if col.name == "id")
-            assert id_col.inferred_type == DataType.INTEGER
-        finally:
-            # Clean up temporary database
-            try:
-                os.remove(temp_db_path)
-            except OSError:
-                pass
+        # The id column should be inferred as INTEGER since it contains numeric strings
+        id_col = next(col for col in profiler.profiled_columns if col.name == "id")
+        assert id_col.inferred_type == DataType.INTEGER
 
     def test_profiler_db_connection_error(self):
         """Test profiler error on DB connection failure."""
@@ -646,455 +650,336 @@ class TestProfilerEdgeCases:
         with pytest.raises(ValueError):
             Profiler(data_lake=None)
 
-    def test_profiler_reprofile_same_data(self):
+    def test_profiler_reprofile_same_data(self, tmp_path: Path):
         """Test that reprofiling the same data produces consistent results."""
-        # Create a simple test setup
-        temp_dir = tempfile.mkdtemp()
-        temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
+        # Create a simple test setup under pytest tmp_path
+        temp_dir = tmp_path / "lake"
+        temp_dir.mkdir()
+        csv_path = tmp_path / "data.csv"
+        csv_path.write_text("id,name,value\n1,Alice,10.5\n2,Bob,20.0\n", encoding="utf-8")
 
-        try:
-            # Create simple test data
-            with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
-                f.write("id,name,value\n1,Alice,10.5\n2,Bob,20.0\n")
+        dsv_source = DsvSource(str(csv_path))
+        data_lake = DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=Path(temp_dir))
 
-            dsv_source = DsvSource(temp_path)
-            data_lake = DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=Path(temp_dir))
+        profiler = Profiler(data_lake=data_lake)
 
-            profiler = Profiler(data_lake=data_lake)
+        # Profile first time (reduced sample size for performance)
+        profiler.profile(sample_size=5)
+        first_results = {col.name: col.inferred_type for col in profiler.profiled_columns}
 
-            # Profile first time (reduced sample size for performance)
-            profiler.profile(sample_size=5)
-            first_results = {col.name: col.inferred_type for col in profiler.profiled_columns}
+        # Profile second time (reduced sample size for performance)
+        profiler.profile(sample_size=5)
+        second_results = {col.name: col.inferred_type for col in profiler.profiled_columns}
 
-            # Profile second time (reduced sample size for performance)
-            profiler.profile(sample_size=5)
-            second_results = {col.name: col.inferred_type for col in profiler.profiled_columns}
+        # Results should be identical
+        assert first_results == second_results
 
-            # Results should be identical
-            assert first_results == second_results
-
-        finally:
-            # Robust cleanup with exception handling
-            try:
-                os.close(temp_fd)
-            except OSError:
-                pass  # File descriptor already closed
-            try:
-                os.unlink(temp_path)
-            except OSError:
-                pass  # File may not exist or be locked
-            try:
-                shutil.rmtree(temp_dir)
-            except OSError:
-                pass  # Directory may not exist or be locked
-
-    def test_profiler_large_sample_size(self):
+    def test_profiler_large_sample_size(self, tmp_path: Path):
         """Test profiler with sample size larger than available data."""
-        temp_dir = tempfile.mkdtemp()
-        temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
+        temp_dir = tmp_path / "lake"
+        temp_dir.mkdir()
+        csv_path = tmp_path / "small.csv"
+        csv_path.write_text("id,name\n1,Alice\n2,Bob\n3,Charlie\n4,Diana\n5,Eve\n", encoding="utf-8")
 
-        try:
-            # Create small test data (only 5 rows)
-            with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
-                f.write("id,name\n1,Alice\n2,Bob\n3,Charlie\n4,Diana\n5,Eve\n")
+        dsv_source = DsvSource(str(csv_path))
+        data_lake = DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=Path(temp_dir))
 
-            dsv_source = DsvSource(temp_path)
-            data_lake = DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=Path(temp_dir))
+        profiler = Profiler(data_lake=data_lake)
 
-            profiler = Profiler(data_lake=data_lake)
+        # Try to profile with sample size larger than available data
+        profiler.profile(sample_size=100)  # More than 5 rows
 
-            # Try to profile with sample size larger than available data
-            profiler.profile(sample_size=100)  # More than 5 rows
+        # Should still work and profile all available data
+        assert len(profiler.profiled_columns) > 0
 
-            # Should still work and profile all available data
-            assert len(profiler.profiled_columns) > 0
-
-        finally:
-            # Robust cleanup with exception handling
-            try:
-                os.close(temp_fd)
-            except OSError:
-                pass  # File descriptor already closed
-            try:
-                os.unlink(temp_path)
-            except OSError:
-                pass  # File may not exist or be locked
-            try:
-                shutil.rmtree(temp_dir)
-            except OSError:
-                pass  # Directory may not exist or be locked
-
-    def test_calculate_adaptive_sample_size(self):
+    def test_calculate_adaptive_sample_size(self, tmp_path: Path):
         """
         Test the _calculate_adaptive_sample_size method directly to validate all assumptions.
 
-        Tests all the adaptive sampling strategy boundaries and calculations:
-        - Datasets < 10K rows: 100% sample
-        - Datasets 10K-25K rows: 75% sample
-        - Datasets 25K-50K rows: 50% sample
-        - Datasets 50K-100K rows: 25% sample
-        - Datasets 100K-500K rows: 15% sample
-        - Datasets > 500K rows: 10% sample
+        Uses pytest's tmp_path for temporary files/directories instead of tempfile.
         """
-        # Create a minimal profiler instance for testing
-        temp_dir = tempfile.mkdtemp()
-        temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
 
-        try:
-            # Create minimal test data
-            with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
-                f.write("id,name\n1,Alice\n2,Bob\n")
+        # Create a minimal profiler environment under pytest tmp_path
+        temp_dir = tmp_path / "lake"
+        temp_dir.mkdir()
+        csv_path = tmp_path / "sample.csv"
+        csv_path.write_text("id,name\n1,Alice\n2,Bob\n", encoding="utf-8")
 
-            dsv_source = DsvSource(temp_path)
-            DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=Path(temp_dir))
+        dsv_source = DsvSource(str(csv_path))
+        DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=Path(temp_dir))
 
-            # Test datasets < 5K rows (100% sample)
-            test_cases_small = [
-                (0, 0),
-                (1, 1),
-                (1000, 1000),
-                (4999, 4999),
-            ]
+        # Test datasets < 5K rows (100% sample)
+        test_cases_small = [
+            (0, 0),
+            (1, 1),
+            (1000, 1000),
+            (4999, 4999),
+        ]
 
-            for total_rows, expected_sample in test_cases_small:
-                sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
-                expected = expected_sample
-                assert sample_size == expected, f"Expected {expected} for {total_rows} rows, got {sample_size}"
+        for total_rows, expected_sample in test_cases_small:
+            sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
+            expected = expected_sample
+            assert sample_size == expected, f"Expected {expected} for {total_rows} rows, got {sample_size}"
 
-            # Test datasets 5K-10K rows (80% sample)
-            test_cases_80 = [
-                (5000, 4000),
-                (7500, 6000),
-                (9999, 7999),
-            ]
-            for total_rows, expected_sample in test_cases_80:
-                sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
-                expected = expected_sample
-                assert sample_size == expected, f"Expected {expected} for {total_rows} rows, got {sample_size}"
+        # Test datasets 5K-10K rows (80% sample)
+        test_cases_80 = [
+            (5000, 4000),
+            (7500, 6000),
+            (9999, 7999),
+        ]
+        for total_rows, expected_sample in test_cases_80:
+            sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
+            expected = expected_sample
+            assert sample_size == expected, f"Expected {expected} for {total_rows} rows, got {sample_size}"
 
-            # Test datasets 10K-25K rows (60% sample)
-            test_cases_60 = [
-                (10000, 6000),
-                (15000, 9000),
-                (20000, 12000),
-                (24999, 14999),
-            ]
-            for total_rows, expected_sample in test_cases_60:
-                # unittest.subTest removed; run assertions directly under pytest
-                sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
-                expected = expected_sample
-                assert sample_size == expected, f"Expected {expected} for {total_rows} rows, got {sample_size}"
+        # Test datasets 10K-25K rows (60% sample)
+        test_cases_60 = [
+            (10000, 6000),
+            (15000, 9000),
+            (20000, 12000),
+            (24999, 14999),
+        ]
+        for total_rows, expected_sample in test_cases_60:
+            sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
+            expected = expected_sample
+            assert sample_size == expected, f"Expected {expected} for {total_rows} rows, got {sample_size}"
 
-            # Test datasets 25K-100K rows (40% sample)
-            test_cases_40 = [
-                (25000, 10000),
-                (50000, 20000),
-                (75000, 30000),
-                (99999, 39999),
-            ]
-            for total_rows, expected_sample in test_cases_40:
-                # unittest.subTest removed; run assertions directly under pytest
-                sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
-                expected = expected_sample
-                assert sample_size == expected, f"Expected {expected} for {total_rows} rows, got {sample_size}"
+        # Test datasets 25K-100K rows (40% sample)
+        test_cases_40 = [
+            (25000, 10000),
+            (50000, 20000),
+            (75000, 30000),
+            (99999, 39999),
+        ]
+        for total_rows, expected_sample in test_cases_40:
+            sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
+            expected = expected_sample
+            assert sample_size == expected, f"Expected {expected} for {total_rows} rows, got {sample_size}"
 
-            # Test datasets 100K-500K rows (20% sample)
-            test_cases_20 = [
-                (100000, 20000),
-                (200000, 40000),
-                (300000, 60000),
-                (499999, 99999),
-            ]
-            # Test datasets > 500K rows (10% sample)
-            test_cases_10 = [
-                (500000, 50000),
-                (1000000, 100000),
-                (5000000, 500000),
-                (10000000, 1000000),
-            ]
-            for total_rows, expected_sample in test_cases_10:
-                # unittest.subTest removed; run assertions directly under pytest
-                sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
-                expected = expected_sample
-                assert sample_size == expected, f"Expected {expected} for {total_rows} rows, got {sample_size}"
+        # Test datasets 100K-500K rows (20% sample)
+        test_cases_20 = [
+            (100000, 20000),
+            (200000, 40000),
+            (300000, 60000),
+            (499999, 99999),
+        ]
+        # Test datasets > 500K rows (10% sample)
+        test_cases_10 = [
+            (500000, 50000),
+            (1000000, 100000),
+            (5000000, 500000),
+            (10000000, 1000000),
+        ]
+        for total_rows, expected_sample in test_cases_10:
+            sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
+            expected = expected_sample
+            assert sample_size == expected, f"Expected {expected} for {total_rows} rows, got {sample_size}"
 
-            # Ensure the test_cases_20 are also exercised to avoid unused assignment
-            for total_rows, expected_sample in test_cases_20:
-                sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
-                expected = expected_sample
-                assert sample_size == expected, f"Expected {expected} for {total_rows} rows, got {sample_size}"
+        # Ensure the test_cases_20 are also exercised to avoid unused assignment
+        for total_rows, expected_sample in test_cases_20:
+            sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
+            expected = expected_sample
+            assert sample_size == expected, f"Expected {expected} for {total_rows} rows, got {sample_size}"
 
-            # Test boundary conditions and edge cases
-            boundary_tests = [
-                # Test exact boundaries
-                (5000, 4000),  # Exactly at 5K boundary (80% sample)
-                (10000, 6000),  # Exactly at 10K boundary (60% sample)
-                (25000, 10000),  # Exactly at 25K boundary (40% sample)
-                (100000, 20000),  # Exactly at 100K boundary (20% sample)
-                (500000, 50000),  # Exactly at 500K boundary (10% sample)
-                # Test one row before boundaries
-                (4999, 4999),  # One row before 5K boundary (100% sample)
-                (9999, 7999),  # One row before 10K boundary (80% sample)
-                (24999, 14999),  # One row before 25K boundary (60% sample)
-                (99999, 39999),  # One row before 100K boundary (40% sample)
-                (499999, 99999),  # One row before 500K boundary (20% sample)
-                # Test one row after boundaries
-                (5001, 4000),  # One row after 5K boundary (80% sample)
-                (10001, 6000),  # One row after 10K boundary (60% sample)
-                (25001, 10000),  # One row after 25K boundary (40% sample)
-                (100001, 20000),  # One row after 100K boundary (20% sample)
-                (500001, 50000),  # One row after 500K boundary (10% sample)
-            ]
-            for total_rows, expected_sample in boundary_tests:
-                # unittest.subTest removed; run assertions directly under pytest
-                sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
-                expected = expected_sample
-                assert sample_size == expected, f"Expected {expected} for {total_rows} rows, got {sample_size}"
+        # Test boundary conditions and edge cases
+        boundary_tests = [
+            # Test exact boundaries
+            (5000, 4000),  # Exactly at 5K boundary (80% sample)
+            (10000, 6000),  # Exactly at 10K boundary (60% sample)
+            (25000, 10000),  # Exactly at 25K boundary (40% sample)
+            (100000, 20000),  # Exactly at 100K boundary (20% sample)
+            (500000, 50000),  # Exactly at 500K boundary (10% sample)
+            # Test one row before boundaries
+            (4999, 4999),  # One row before 5K boundary (100% sample)
+            (9999, 7999),  # One row before 10K boundary (80% sample)
+            (24999, 14999),  # One row before 25K boundary (60% sample)
+            (99999, 39999),  # One row before 100K boundary (40% sample)
+            (499999, 99999),  # One row before 500K boundary (20% sample)
+            # Test one row after boundaries
+            (5001, 4000),  # One row after 5K boundary (80% sample)
+            (10001, 6000),  # One row after 10K boundary (60% sample)
+            (25001, 10000),  # One row after 25K boundary (40% sample)
+            (100001, 20000),  # One row after 100K boundary (20% sample)
+            (500001, 50000),  # One row after 500K boundary (10% sample)
+        ]
+        for total_rows, expected_sample in boundary_tests:
+            sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
+            expected = expected_sample
+            assert sample_size == expected, f"Expected {expected} for {total_rows} rows, got {sample_size}"
 
-            # Test that sample size never exceeds total rows
-            for total_rows in [1000, 25000, 50000, 100000, 500000, 1000000]:
-                sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
-                assert sample_size <= total_rows, f"Sample size {sample_size} should not exceed total rows {total_rows}"
+        # Test that sample size never exceeds total rows
+        for total_rows in [1000, 25000, 50000, 100000, 500000, 1000000]:
+            sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
+            assert sample_size <= total_rows, f"Sample size {sample_size} should not exceed total rows {total_rows}"
 
-            # Test that sample size is always non-negative
-            for total_rows in [0, 1, 1000, 25000, 50000, 100000, 500000, 1000000]:
-                sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
-                assert sample_size >= 0, f"Sample size {sample_size} should be non-negative for {total_rows} rows"
+        # Test that sample size is always non-negative
+        for total_rows in [0, 1, 1000, 25000, 50000, 100000, 500000, 1000000]:
+            sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
+            assert sample_size >= 0, f"Sample size {sample_size} should be non-negative for {total_rows} rows"
 
-            # Test that sample size is always an integer
-            for total_rows in [1000, 25000, 50000, 100000, 500000, 1000000]:
-                sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
-                assert isinstance(sample_size, int), (
-                    f"Sample size {sample_size} should be an integer for {total_rows} rows"
-                )
+        # Test that sample size is always an integer
+        for total_rows in [1000, 25000, 50000, 100000, 500000, 1000000]:
+            sample_size = Profiler.calculate_adaptive_sample_size(total_rows=total_rows)
+            assert isinstance(sample_size, int), (
+                f"Sample size {sample_size} should be an integer for {total_rows} rows"
+            )
 
-        finally:
-            # Robust cleanup with exception handling
-            try:
-                os.close(temp_fd)
-            except OSError:
-                pass  # File descriptor already closed
-            try:
-                os.unlink(temp_path)
-            except OSError:
-                pass  # File may not exist or be locked
-            try:
-                shutil.rmtree(temp_dir)
-            except OSError:
-                pass  # Directory may not exist or be locked
-
-    def test_profiler_properties(self):
+    def test_profiler_properties(self, tmp_path: Path):
         """Test profiler properties."""
-        temp_dir = tempfile.mkdtemp()
-        temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
+        temp_dir = tmp_path / "lake"
+        temp_dir.mkdir()
+        csv_path = tmp_path / "props.csv"
+        csv_path.write_text("id,name\n1,Alice\n2,Bob\n", encoding="utf-8")
 
-        try:
-            # Create test data
-            with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
-                f.write("id,name\n1,Alice\n2,Bob\n")
+        dsv_source = DsvSource(str(csv_path))
+        data_lake = DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=Path(temp_dir))
 
-            dsv_source = DsvSource(temp_path)
-            data_lake = DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=Path(temp_dir))
+        profiler = Profiler(data_lake=data_lake)
 
-            profiler = Profiler(data_lake=data_lake)
+        # Test properties before profiling
+        assert profiler.data_lake == data_lake
+        assert len(profiler.profiled_columns) == 2  # Always has columns with default TEXT type
 
-            # Test properties before profiling
-            assert profiler.data_lake == data_lake
-            assert len(profiler.profiled_columns) == 2  # Always has columns with default TEXT type
+        # Profile the data (reduced sample size for performance)
+        profiler.profile(sample_size=5)
 
-            # Profile the data (reduced sample size for performance)
-            profiler.profile(sample_size=5)
-
-            # Test properties after profiling
-            assert profiler.data_lake == data_lake
-            assert len(profiler.profiled_columns) > 0
-
-        finally:
-            # Robust cleanup with exception handling
-            try:
-                os.close(temp_fd)
-            except OSError:
-                pass  # File descriptor already closed
-            try:
-                os.unlink(temp_path)
-            except OSError:
-                pass  # File may not exist or be locked
-            try:
-                shutil.rmtree(temp_dir)
-            except OSError:
-                pass  # Directory may not exist or be locked
+        # Test properties after profiling
+        assert profiler.data_lake == data_lake
+        assert len(profiler.profiled_columns) > 0
 
 
 class TestProfilerTypeCasting:
     """Test cases for Profiler type casting functionality."""
-
-    def setup_method(self) -> None:
-        """Set up test fixtures for pytest."""
-        # Create a temporary directory for data lake
-        self.temp_dir = tempfile.mkdtemp()
+    @pytest.fixture(autouse=True)
+    def _class_tmpdir(self, tmp_path: Path):
+        """Provide a pytest-managed temporary dir to class instances as self.temp_dir/self.data_lake_path."""
+        self.temp_dir = tmp_path / "type_casting"
+        self.temp_dir.mkdir()
         self.data_lake_path = Path(self.temp_dir)
+        yield
 
-    def teardown_method(self) -> None:
-        """Clean up test fixtures after each test method."""
-        try:
-            shutil.rmtree(self.temp_dir)
-        except OSError:
-            pass
-
-    def test_cast_value_none_input(self) -> None:
+    def test_cast_value_none_input(self, tmp_path: Path) -> None:
         """Test _cast_value with None input."""
 
-        # Create a minimal profiler instance
-        temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
-        try:
-            with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
-                f.write("id\n1\n")
-            dsv_source = DsvSource(temp_path)
-            data_lake = DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=self.data_lake_path)
-            profiler = Profiler(data_lake=data_lake)
+        # Create a minimal profiler instance under pytest tmp_path
+        csv_path = tmp_path / "none_input.csv"
+        csv_path.write_text("id\n1\n", encoding="utf-8")
+        dsv_source = DsvSource(str(csv_path))
+        data_lake = DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=self.data_lake_path)
+        profiler = Profiler(data_lake=data_lake)
 
-            # Test None input for all data types -> expect None
-            for data_type in [
-                DataType.INTEGER,
-                DataType.FLOAT,
-                DataType.BOOLEAN,
-                DataType.DATE,
-                DataType.TIME,
-                DataType.DATETIME,
-                DataType.TEXT,
-            ]:
-                result = profiler._cast_value(None, target_type=data_type)
-                assert result is None
+        # Test None input for all data types -> expect None
+        for data_type in [
+            DataType.INTEGER,
+            DataType.FLOAT,
+            DataType.BOOLEAN,
+            DataType.DATE,
+            DataType.TIME,
+            DataType.DATETIME,
+            DataType.TEXT,
+        ]:
+            result = profiler._cast_value(None, target_type=data_type)
+            assert result is None
 
-        finally:
-            try:
-                os.remove(temp_path)
-            except Exception:
-                pass
-
-    def test_cast_value_empty_string(self) -> None:
+    def test_cast_value_empty_string(self, tmp_path: Path) -> None:
         """Test _cast_value with empty string input."""
 
-        # Create a minimal profiler instance
-        temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
-        try:
-            with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
-                f.write("id\n1\n")
-            dsv_source = DsvSource(temp_path)
-            data_lake = DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=self.data_lake_path)
-            profiler = Profiler(data_lake=data_lake)
+        # Create a minimal profiler instance under pytest tmp_path
+        csv_path = tmp_path / "empty_string.csv"
+        csv_path.write_text("id\n1\n", encoding="utf-8")
+        dsv_source = DsvSource(str(csv_path))
+        data_lake = DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=self.data_lake_path)
+        profiler = Profiler(data_lake=data_lake)
 
-            # Test empty string input for all data types -> expect None
-            for data_type in [
-                DataType.INTEGER,
-                DataType.FLOAT,
-                DataType.BOOLEAN,
-                DataType.DATE,
-                DataType.TIME,
-                DataType.DATETIME,
-                DataType.TEXT,
-            ]:
-                result = profiler._cast_value("", target_type=data_type)
-                assert result is None
+        # Test empty string input for all data types -> expect None
+        for data_type in [
+            DataType.INTEGER,
+            DataType.FLOAT,
+            DataType.BOOLEAN,
+            DataType.DATE,
+            DataType.TIME,
+            DataType.DATETIME,
+            DataType.TEXT,
+        ]:
+            result = profiler._cast_value("", target_type=data_type)
+            assert result is None
 
-        finally:
-            try:
-                os.remove(temp_path)
-            except Exception:
-                pass
-
-    def test_cast_value_integer_conversion(self) -> None:
+    def test_cast_value_integer_conversion(self, tmp_path: Path) -> None:
         """Test _cast_value integer conversion with various inputs."""
 
-        # Create a minimal profiler instance
-        temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
-        try:
-            with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
-                f.write("id\n1\n")
-            dsv_source = DsvSource(temp_path)
-            data_lake = DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=self.data_lake_path)
-            profiler = Profiler(data_lake=data_lake)
+        # Create a minimal profiler instance under pytest tmp_path
+        csv_path = tmp_path / "integer_conversion.csv"
+        csv_path.write_text("id\n1\n", encoding="utf-8")
+        dsv_source = DsvSource(str(csv_path))
+        data_lake = DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=self.data_lake_path)
+        profiler = Profiler(data_lake=data_lake)
 
-            # Test valid integer conversions
-            valid_integers = [
-                ("123", 123),
-                ("-456", -456),
-                ("0", 0),
-                ("  789  ", 789),  # With whitespace
-                ("00123", 123),  # Leading zeros
-            ]
+        # Test valid integer conversions
+        valid_integers = [
+            ("123", 123),
+            ("-456", -456),
+            ("0", 0),
+            ("  789  ", 789),  # With whitespace
+            ("00123", 123),  # Leading zeros
+        ]
 
-            for input_str, expected in valid_integers:
-                result = profiler._cast_value(input_str, target_type=DataType.INTEGER)
-                assert result == expected, f"Failed to convert '{input_str}' to {expected}"
+        for input_str, expected in valid_integers:
+            result = profiler._cast_value(input_str, target_type=DataType.INTEGER)
+            assert result == expected, f"Failed to convert '{input_str}' to {expected}"
 
-            # Test invalid integer conversions
-            invalid_integers = [
-                "123.45",  # Float
-                "abc",  # Text
-                "12.3.4",  # Invalid format
-                "",  # Empty
-                " ",  # Whitespace
-            ]
+        # Test invalid integer conversions
+        invalid_integers = [
+            "123.45",  # Float
+            "abc",  # Text
+            "12.3.4",  # Invalid format
+            "",  # Empty
+            " ",  # Whitespace
+        ]
 
-            for input_str in invalid_integers:
-                result = profiler._cast_value(input_str, target_type=DataType.INTEGER)
-                assert result is None
+        for input_str in invalid_integers:
+            result = profiler._cast_value(input_str, target_type=DataType.INTEGER)
+            assert result is None
 
-        finally:
-            try:
-                os.remove(temp_path)
-            except Exception:
-                pass
-
-    def test_cast_value_boolean_conversion(self) -> None:
+    def test_cast_value_boolean_conversion(self, tmp_path: Path) -> None:
         """Test _cast_value boolean conversion with various inputs."""
 
-        # Create a minimal profiler instance
-        temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
-        try:
-            with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
-                f.write("id\n1\n")
-            dsv_source = DsvSource(temp_path)
-            data_lake = DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=self.data_lake_path)
-            profiler = Profiler(data_lake=data_lake)
+        # Create a minimal profiler instance under pytest tmp_path
+        csv_path = tmp_path / "boolean_conversion.csv"
+        csv_path.write_text("id\n1\n", encoding="utf-8")
+        dsv_source = DsvSource(str(csv_path))
+        data_lake = DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=self.data_lake_path)
+        profiler = Profiler(data_lake=data_lake)
 
-            # Test true values (only lowercase versions are accepted)
-            true_values = ["true", "yes", "y", "1", "on"]
+        # Test true values (only lowercase versions are accepted)
+        true_values = ["true", "yes", "y", "1", "on"]
 
-            for input_str in true_values:
-                result = profiler._cast_value(input_str, target_type=DataType.BOOLEAN)
-                assert result, f"'{input_str}' should convert to True"
+        for input_str in true_values:
+            result = profiler._cast_value(input_str, target_type=DataType.BOOLEAN)
+            assert result, f"'{input_str}' should convert to True"
 
-            # Test false values (only lowercase versions are accepted)
-            false_values = ["false", "no", "n", "0", "off"]
+        # Test false values (only lowercase versions are accepted)
+        false_values = ["false", "no", "n", "0", "off"]
 
-            for input_str in false_values:
-                result = profiler._cast_value(input_str, target_type=DataType.BOOLEAN)
-                assert not result, f"'{input_str}' should convert to False"
+        for input_str in false_values:
+            result = profiler._cast_value(input_str, target_type=DataType.BOOLEAN)
+            assert not result, f"'{input_str}' should convert to False"
 
-            # Test uppercase/mixed case values (some are accepted by String.to_bool)
-            mixed_case_cases = [
-                ("True", True),  # Accepted
-                ("TRUE", True),  # Accepted
-                ("T", None),  # Not accepted (single char, uppercase only)
-                ("Yes", True),  # Accepted
-                ("YES", True),  # Accepted
-                ("Y", True),  # Accepted (lowercases to 'y')
-                ("False", False),  # Accepted
-                ("FALSE", False),  # Accepted
-                ("F", None),  # Not accepted (single char, uppercase only)
-                ("No", False),  # Accepted
-                ("NO", False),  # Accepted (lowercases to 'no')
-                ("N", False),  # Accepted (lowercases to 'n')
-            ]
+        # Test uppercase/mixed case values (some are accepted by String.to_bool)
+        mixed_case_cases = [
+            ("True", True),  # Accepted
+            ("TRUE", True),  # Accepted
+            ("T", None),  # Not accepted (single char, uppercase only)
+            ("Yes", True),  # Accepted
+            ("YES", True),  # Accepted
+            ("Y", True),  # Accepted (lowercases to 'y')
+            ("False", False),  # Accepted
+            ("FALSE", False),  # Accepted
+            ("F", None),  # Not accepted (single char, uppercase only)
+            ("No", False),  # Accepted
+            ("NO", False),  # Accepted (lowercases to 'no')
+            ("N", False),  # Accepted (lowercases to 'n')
+        ]
 
-            for input_str, expected in mixed_case_cases:
-                result = profiler._cast_value(input_str, target_type=DataType.BOOLEAN)
-                assert result == expected, f"'{input_str}' should convert to {expected}"
-
-        finally:
-            try:
-                os.remove(temp_path)
-            except Exception:
-                pass
+        for input_str, expected in mixed_case_cases:
+            result = profiler._cast_value(input_str, target_type=DataType.BOOLEAN)
+            assert result == expected, f"'{input_str}' should convert to {expected}"

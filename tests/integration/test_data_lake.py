@@ -5,7 +5,6 @@ These tests focus on testing DataLake with real file systems and database operat
 validating end-to-end functionality without mocking.
 """
 
-import os
 import pytest
 from pathlib import Path
 
