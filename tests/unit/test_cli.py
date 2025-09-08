@@ -17,6 +17,61 @@ def run_cli(args):
     return result
 
 
+@pytest.fixture(autouse=True)
+def _redirect_tempfile_to_tmp_path(tmp_path, monkeypatch):
+    """Redirect common tempfile functions to create files under pytest's tmp_path.
+
+    This avoids changing many tests that call tempfile.* directly and ensures
+    all temporary artifacts are created inside pytest-managed directories.
+    """
+    import tempfile as _tempfile
+
+    # Save originals
+    _orig_named = _tempfile.NamedTemporaryFile
+    _orig_mkdtemp = _tempfile.mkdtemp
+    _orig_mkstemp = _tempfile.mkstemp
+    _orig_mktemp = getattr(_tempfile, "mktemp", None)
+    _orig_TemporaryDirectory = getattr(_tempfile, "TemporaryDirectory", None)
+
+    def _named(*args, **kwargs):
+        if "dir" not in kwargs:
+            kwargs["dir"] = str(tmp_path)
+        return _orig_named(*args, **kwargs)
+
+    def _mkdtemp(*args, **kwargs):
+        if "dir" not in kwargs:
+            kwargs["dir"] = str(tmp_path)
+        return _orig_mkdtemp(*args, **kwargs)
+
+    def _mkstemp(*args, **kwargs):
+        if "dir" not in kwargs:
+            kwargs["dir"] = str(tmp_path)
+        return _orig_mkstemp(*args, **kwargs)
+
+    if _orig_mktemp:
+        def _mktemp(*args, **kwargs):
+            if "dir" not in kwargs:
+                kwargs["dir"] = str(tmp_path)
+            return _orig_mktemp(*args, **kwargs)
+
+    if _orig_TemporaryDirectory:
+        def _temporary_directory(*args, **kwargs):
+            if "dir" not in kwargs:
+                kwargs["dir"] = str(tmp_path)
+            return _orig_TemporaryDirectory(*args, **kwargs)
+
+    # Apply monkeypatches
+    monkeypatch.setattr(_tempfile, "NamedTemporaryFile", _named)
+    monkeypatch.setattr(_tempfile, "mkdtemp", _mkdtemp)
+    monkeypatch.setattr(_tempfile, "mkstemp", _mkstemp)
+    if _orig_mktemp:
+        monkeypatch.setattr(_tempfile, "mktemp", _mktemp)
+    if _orig_TemporaryDirectory:
+        monkeypatch.setattr(_tempfile, "TemporaryDirectory", _temporary_directory)
+
+    yield
+
+
 def test_cli_help():
     result = run_cli(["--help"])
     assert result.returncode == 0

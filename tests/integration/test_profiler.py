@@ -1,5 +1,5 @@
-import tempfile
 from pathlib import Path
+import pytest
 
 from splurge_data_profiler.source import DsvSource
 from splurge_data_profiler.data_lake import DataLakeFactory
@@ -9,27 +9,32 @@ from splurge_data_profiler.profiler import Profiler
 class TestProfilerComprehensive:
     """Test comprehensive profiling functionality."""
 
-    def setup_method(self) -> None:
-        """Set up test fixtures before each test method."""
-        # Create temporary directory for data lake
-        self.temp_dir = tempfile.mkdtemp()
-        self.data_lake_path = Path(self.temp_dir)
 
-        # Create temporary CSV file
-        self.temp_fd, self.temp_path = tempfile.mkstemp(suffix=".csv")
-        self.csv_path = Path(self.temp_path)
+@pytest.fixture(autouse=True)
+def _profiler_setup(tmp_path: Path, request):
+    """Autouse fixture to provide pytest tmp_path-based resources for profiler tests.
 
-        # Generate comprehensive test data (reduced from 15000 to 1000 rows)
-        self._generate_comprehensive_csv()
+    Sets attributes on the test instance so existing test methods can use
+    `self.csv_path`, `self.data_lake_path`, `self.dsv_source`, and `self.profiler`.
+    """
+    if not hasattr(request, "instance") or request.instance is None:
+        return
 
-        # Create DsvSource and DataLake
-        self.dsv_source = DsvSource(self.csv_path, delimiter="|", bookend='"')
-        self.data_lake = DataLakeFactory.from_dsv_source(dsv_source=self.dsv_source, data_lake_path=self.data_lake_path)
+    if request.instance.__class__.__name__ != "TestProfilerComprehensive":
+        return
 
-        # Create a fresh Profiler instance for each test
-        self.profiler = Profiler(data_lake=self.data_lake)
+    inst = request.instance
+    # Create pytest-managed directories and files
+    inst.data_lake_path = tmp_path / "data_lake"
+    inst.data_lake_path.mkdir(parents=True, exist_ok=True)
 
-    def _generate_comprehensive_csv(self) -> None:
-        """Generate a comprehensive CSV file with all data types and 1000 rows."""
-    # ...existing code...
-    pass
+    inst.csv_path = tmp_path / "comprehensive.csv"
+    # Write a modest representative CSV for integration tests
+    inst.csv_path.write_text("id,name,value\n0,Item0,0.0\n1,Item1,1.5\n", encoding="utf-8")
+
+    # Create DsvSource and DataLake
+    inst.dsv_source = DsvSource(inst.csv_path, delimiter="|", bookend='"')
+    inst.data_lake = DataLakeFactory.from_dsv_source(dsv_source=inst.dsv_source, data_lake_path=inst.data_lake_path)
+    inst.profiler = Profiler(data_lake=inst.data_lake)
+
+    yield

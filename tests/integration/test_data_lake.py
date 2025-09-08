@@ -6,7 +6,6 @@ validating end-to-end functionality without mocking.
 """
 
 import os
-import tempfile
 import pytest
 from pathlib import Path
 
@@ -15,31 +14,17 @@ from splurge_data_profiler.data_lake import DataLakeFactory, DataLake
 
 
 @pytest.fixture
-def temp_files():
-    """Set up test fixtures."""
-    # Create a temporary CSV file
-    temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
-    with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
-        f.write("id,name,value\n1,Alice,10.5\n2,Bob,20.0\n3,Charlie,15.75\n")
-    test_file_path = Path(temp_path)
+def temp_files(tmp_path: Path):
+    """Set up test fixtures using pytest tmp_path."""
+    # Create a temporary CSV file under pytest tmp_path
+    test_file_path = tmp_path / "test.csv"
+    test_file_path.write_text("id,name,value\n1,Alice,10.5\n2,Bob,20.0\n3,Charlie,15.75\n", encoding="utf-8")
 
-    # Create a temporary directory for the data lake
-    temp_dir = tempfile.mkdtemp()
-    data_lake_path = Path(temp_dir)
+    # Create a temporary directory for the data lake under tmp_path
+    data_lake_path = tmp_path / "data_lake"
+    data_lake_path.mkdir(parents=True, exist_ok=True)
 
     yield test_file_path, data_lake_path
-
-    # Clean up test fixtures
-    try:
-        os.remove(temp_path)
-    except Exception:
-        pass
-    try:
-        import shutil
-
-        shutil.rmtree(temp_dir)
-    except Exception:
-        pass
 
 
 def test_data_lake_from_factory(temp_files) -> None:
@@ -82,53 +67,45 @@ def test_data_lake_equality_with_factory_created(temp_files) -> None:
 def test_data_lake_empty_dsv(temp_files):
     """Test DataLake creation from an empty DSV file."""
     _, data_lake_path = temp_files
-
-    temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
-    with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
-        f.write("id,name\n")  # Only header, no data
-    dsv_source = DsvSource(temp_path)
+    empty_file = data_lake_path / "empty.csv"
+    empty_file.write_text("id,name\n", encoding="utf-8")
+    dsv_source = DsvSource(empty_file)
     # Should not raise, but will create an empty table
     data_lake = DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=data_lake_path)
     assert isinstance(data_lake, DataLake)
-    os.remove(temp_path)
+    # file created under data_lake_path/tmp handled by pytest tmp_path
 
 
 def test_data_lake_dsv_missing_columns(temp_files):
     """Test DataLake creation from DSV with missing columns."""
     _, data_lake_path = temp_files
-
-    temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
-    with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
-        f.write("id,name\n1\n2,Bob\n")
-    dsv_source = DsvSource(temp_path)
+    missing_file = data_lake_path / "missing.csv"
+    missing_file.write_text("id,name\n1\n2,Bob\n", encoding="utf-8")
+    dsv_source = DsvSource(missing_file)
     # Should not raise, but will have None for missing values
     data_lake = DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=data_lake_path)
     assert isinstance(data_lake, DataLake)
-    os.remove(temp_path)
+    # file created under data_lake_path/tmp handled by pytest tmp_path
 
 
 def test_data_lake_dsv_extra_columns(temp_files):
     """Test DataLake creation from DSV with extra columns in data rows."""
     _, data_lake_path = temp_files
-
-    temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
-    with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
-        f.write("id,name\n1,Alice,Extra\n2,Bob\n")
-    dsv_source = DsvSource(temp_path)
+    extra_file = data_lake_path / "extra.csv"
+    extra_file.write_text("id,name\n1,Alice,Extra\n2,Bob\n", encoding="utf-8")
+    dsv_source = DsvSource(extra_file)
     # Should not raise, extra columns are ignored
     data_lake = DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=data_lake_path)
     assert isinstance(data_lake, DataLake)
-    os.remove(temp_path)
+    # file created under data_lake_path/tmp handled by pytest tmp_path
 
 
 def test_data_lake_batch_size_edge_case(temp_files):
     """Test DataLake batch insertion with minimum batch_size (edge case)."""
     _, data_lake_path = temp_files
-
-    temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
-    with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
-        f.write("id,name\n1,Alice\n2,Bob\n")
-    dsv_source = DsvSource(temp_path)
+    batch_file = data_lake_path / "batch.csv"
+    batch_file.write_text("id,name\n1,Alice\n2,Bob\n", encoding="utf-8")
+    dsv_source = DsvSource(batch_file)
     # Patch DataLakeFactory to use minimum batch_size
     orig_stream = DataLakeFactory._stream_dsv_to_sqlite
 
@@ -141,7 +118,7 @@ def test_data_lake_batch_size_edge_case(temp_files):
         assert isinstance(data_lake, DataLake)
     finally:
         DataLakeFactory._stream_dsv_to_sqlite = orig
-    os.remove(temp_path)
+    # no explicit removal needed; files live under pytest tmp_path
 
 
 # --- Merged from test_data_lake_factory.py (unique tests) ---
@@ -212,33 +189,23 @@ def test_from_dsv_source_with_different_file_types(temp_files) -> None:
     """Test that from_dsv_source works with different file extensions."""
     test_file_path, data_lake_path = temp_files
 
-    # Create a TSV file
-    tsv_fd, tsv_path = tempfile.mkstemp(suffix=".tsv")
-    try:
-        with os.fdopen(tsv_fd, "w", encoding="utf-8") as f:
-            f.write("id\tname\tvalue\n1\tAlice\t10.5\n2\tBob\t20.0\n")
+    # Create a TSV file under the pytest temp directory
+    tsv_file_path = data_lake_path / "sample.tsv"
+    tsv_file_path.write_text("id\tname\tvalue\n1\tAlice\t10.5\n2\tBob\t20.0\n", encoding="utf-8")
 
-        tsv_file_path = Path(tsv_path)
+    # Create DSV source with tab delimiter
+    dsv_source = DsvSource(tsv_file_path, delimiter="\t")
 
-        # Create DSV source with tab delimiter
-        dsv_source = DsvSource(tsv_file_path, delimiter="\t")
+    # Create data lake
+    data_lake = DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=data_lake_path)
 
-        # Create data lake
-        data_lake = DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=data_lake_path)
+    # Verify the SQLite file was created with the correct name
+    expected_db_path = data_lake_path / f"{tsv_file_path.stem}.sqlite"
+    assert expected_db_path.exists()
 
-        # Verify the SQLite file was created with the correct name
-        expected_db_path = data_lake_path / f"{tsv_file_path.stem}.sqlite"
-        assert expected_db_path.exists()
-
-        # Verify the table name is correct (without .tsv extension)
-        expected_table_name = tsv_file_path.stem
-        assert data_lake.db_table == expected_table_name
-
-    finally:
-        try:
-            os.remove(tsv_path)
-        except Exception:
-            pass
+    # Verify the table name is correct (without .tsv extension)
+    expected_table_name = tsv_file_path.stem
+    assert data_lake.db_table == expected_table_name
 
 
 # --- End merged content ---

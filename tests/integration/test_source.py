@@ -137,33 +137,44 @@ def generate_large_csv_file(temp_fd, temp_path):
 
 
 @pytest.fixture
-def large_csv_and_data_lake():
-    """Fixture to create a large CSV file and data lake directory."""
-    # Create a temporary directory for the data lake
-    temp_dir = tempfile.mkdtemp()
-    data_lake_path = Path(temp_dir)
+def large_csv_and_data_lake(tmp_path: Path):
+    """Fixture to create a large CSV file and data lake directory under pytest tmp_path."""
+    # Create a directory for the data lake under pytest-managed tmp_path
+    data_lake_path = tmp_path / "data_lake"
+    data_lake_path.mkdir(parents=True, exist_ok=True)
 
-    # Create a temporary CSV file
-    temp_fd, temp_path = tempfile.mkstemp(suffix=".csv")
-    csv_path = Path(temp_path)
+    # Create a CSV path under tmp_path and open/close via high-level APIs
+    csv_path = tmp_path / "large.csv"
 
-    # Generate a large CSV file for testing
-    generate_large_csv_file(temp_fd, temp_path)
+    # Generate a large CSV file for testing using a temporary file descriptor
+    # created under pytest's tmp_path for cross-platform safety
+    with open(csv_path, "w", encoding="utf-8", newline="") as f:
+        # Reuse generator logic but write directly to the file path
+        import csv
+        import random
+        import string
+
+        num_rows = 10000
+        num_columns = 5
+        column_names = [f"col_{i}" for i in range(num_columns)]
+        writer = csv.writer(f)
+        writer.writerow(column_names)
+        for i in range(num_rows):
+            row = []
+            for j in range(num_columns):
+                if j == 0:
+                    row.append(str(i))
+                elif j == 1:
+                    row.append(f"name_{i}")
+                elif j == 2:
+                    row.append(str(random.randint(1, 1000)))
+                elif j == 3:
+                    row.append(f"{random.uniform(0, 100):.2f}")
+                else:
+                    row.append("".join(random.choices(string.ascii_letters, k=10)))
+            writer.writerow(row)
 
     yield csv_path, data_lake_path
-
-    # Cleanup
-    try:
-        os.close(temp_fd)
-        os.remove(temp_path)
-    except Exception:
-        pass
-    try:
-        import shutil
-
-        shutil.rmtree(temp_dir)
-    except Exception:
-        pass
 
 
 def test_streaming_large_dsv_file_creation(large_csv_and_data_lake):

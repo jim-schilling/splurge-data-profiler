@@ -5,9 +5,8 @@ These tests focus on testing DbSource with real database connections and file sy
 validating end-to-end functionality without mocking.
 """
 
-import os
-import tempfile
 import pytest
+from pathlib import Path
 
 from sqlalchemy import create_engine, MetaData, Column as SAColumn, String, Table
 
@@ -15,9 +14,9 @@ from splurge_data_profiler.source import DbSource
 
 
 @pytest.fixture
-def temp_sqlite_db():
-    """Create a temporary SQLite database for testing."""
-    db_fd, db_path = tempfile.mkstemp(suffix=".db")
+def temp_sqlite_db(tmp_path: Path):
+    """Create a temporary SQLite database for testing using pytest tmp_path."""
+    db_path = tmp_path / "test.db"
     db_url = f"sqlite:///{db_path}"
     db_table = "test_table"
     db_schema = None  # SQLite does not use schemas
@@ -39,12 +38,6 @@ def temp_sqlite_db():
     try:
         engine.dispose()
     except Exception:
-        pass
-    os.close(db_fd)
-    try:
-        os.remove(db_path)
-    except PermissionError:
-        # File might still be in use, that's okay for tests
         pass
 
 
