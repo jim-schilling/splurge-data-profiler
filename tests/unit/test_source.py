@@ -72,7 +72,7 @@ class TestSource:
         """Test Source initialization with default values."""
 
         class TestSource(Source):
-            pass
+            ...
 
         source = TestSource()
         assert len(source.columns) == 0
@@ -81,7 +81,7 @@ class TestSource:
         """Test Source initialization with custom values."""
 
         class TestSource(Source):
-            pass
+            ...
 
         columns = [Column("col1"), Column("col2")]
         source = TestSource(columns=columns)
@@ -93,7 +93,7 @@ class TestSource:
         """Test Source columns property."""
 
         class TestSource(Source):
-            pass
+            ...
 
         columns = [Column("col1"), Column("col2")]
         source = TestSource(columns=columns)
@@ -109,7 +109,7 @@ class TestSource:
         """Test Source iteration."""
 
         class TestSource(Source):
-            pass
+            ...
 
         columns = [Column("col1"), Column("col2")]
         source = TestSource(columns=columns)
@@ -122,7 +122,7 @@ class TestSource:
         """Test Source length."""
 
         class TestSource(Source):
-            pass
+            ...
 
         columns = [Column("col1"), Column("col2"), Column("col3")]
         source = TestSource(columns=columns)
@@ -133,7 +133,7 @@ class TestSource:
         """Test Source indexing."""
 
         class TestSource(Source):
-            pass
+            ...
 
         columns = [Column("col1"), Column("col2")]
         source = TestSource(columns=columns)
@@ -145,7 +145,7 @@ class TestSource:
         """Test Source equality."""
 
         class TestSource(Source):
-            pass
+            ...
 
         columns1 = [Column("col1"), Column("col2")]
         columns2 = [Column("col1"), Column("col2")]
@@ -162,7 +162,7 @@ class TestSource:
         """Test Source equality with different type."""
 
         class TestSource(Source):
-            pass
+            ...
 
         source = TestSource()
         other = "not a source"
@@ -173,7 +173,7 @@ class TestSource:
         """Test Source string representation."""
 
         class TestSource(Source):
-            pass
+            ...
 
         columns = [Column("col1"), Column("col2")]
         source = TestSource(columns=columns)

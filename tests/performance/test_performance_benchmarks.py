@@ -465,5 +465,4 @@ def test_memory_efficiency(performance_benchmark_setup) -> None:
     )
 
 
-if __name__ == "__main__":
-    pytest.main([__file__])
+# Removed in-file pytest invocation; run performance benchmarks with pytest CLI or runner.

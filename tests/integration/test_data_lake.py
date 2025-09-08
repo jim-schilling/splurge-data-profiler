@@ -210,5 +210,4 @@ def test_from_dsv_source_with_different_file_types(temp_files) -> None:
 # --- End merged content ---
 
 
-if __name__ == "__main__":
-    pytest.main([__file__])
+# Removed in-file pytest invocation; run tests with the pytest CLI instead.
