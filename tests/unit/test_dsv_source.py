@@ -62,39 +62,41 @@ def test_dsv_source_initialization_custom_values(tmp_path: Path) -> None:
     assert source.header_rows == 1
     assert source.skip_empty_rows is False
 
-    def test_dsv_source_equality(self) -> None:
-        """Test DsvSource equality comparison."""
-        source1 = DsvSource(self.test_file_path, delimiter=",")
-        source2 = DsvSource(self.test_file_path, delimiter=",")
-        source3 = DsvSource(self.test_file_path, delimiter="\t")
+def test_dsv_source_equality(dsv_test_file: Path) -> None:
+    """Test DsvSource equality comparison."""
+    source1 = DsvSource(dsv_test_file, delimiter=",")
+    source2 = DsvSource(dsv_test_file, delimiter=",")
+    source3 = DsvSource(dsv_test_file, delimiter="\t")
 
-        assert source1 == source2
-        assert source1 != source3
+    assert source1 == source2
+    assert source1 != source3
 
-    def test_dsv_source_equality_different_type(self) -> None:
-        """Test DsvSource equality with different type."""
-        source = DsvSource(self.test_file_path)
-        other = "not a dsv source"
 
-        assert source != other
+def test_dsv_source_equality_different_type(dsv_test_file: Path) -> None:
+    """Test DsvSource equality with different type."""
+    source = DsvSource(dsv_test_file)
+    other = "not a dsv source"
 
-    def test_dsv_source_string_representation(self) -> None:
-        """Test DsvSource string representation."""
-        source = DsvSource(self.test_file_path, delimiter=",")
+    assert source != other
 
-        # Use flexible pattern matching for key fields
-        actual = str(source)
-        assert f"file_path={self.test_file_path}" in actual
-        assert "delimiter=," in actual
-        assert 'bookend="' in actual
-        assert "bookend_strip=True" in actual
-        assert "encoding=utf-8" in actual
-        assert "skip_header_rows=0" in actual
-        assert "skip_footer_rows=0" in actual
-        assert "header_rows=1" in actual
-        assert "skip_empty_rows=True" in actual
-        assert "Column(name=id, inferred_type=DataType.TEXT, raw_type=DataType.TEXT, is_nullable=True)" in actual
-        assert "Column(name=name, inferred_type=DataType.TEXT, raw_type=DataType.TEXT, is_nullable=True)" in actual
+
+def test_dsv_source_string_representation(dsv_test_file: Path) -> None:
+    """Test DsvSource string representation."""
+    source = DsvSource(dsv_test_file, delimiter=",")
+
+    # Use flexible pattern matching for key fields
+    actual = str(source)
+    assert f"file_path={dsv_test_file}" in actual
+    assert "delimiter=," in actual
+    assert 'bookend="' in actual
+    assert "bookend_strip=True" in actual
+    assert "encoding=utf-8" in actual
+    assert "skip_header_rows=0" in actual
+    assert "skip_footer_rows=0" in actual
+    assert "header_rows=1" in actual
+    assert "skip_empty_rows=True" in actual
+    assert "Column(name=id, inferred_type=DataType.TEXT, raw_type=DataType.TEXT, is_nullable=True)" in actual
+    assert "Column(name=name, inferred_type=DataType.TEXT, raw_type=DataType.TEXT, is_nullable=True)" in actual
 
 
 def test_dsv_source_nonexistent_file():

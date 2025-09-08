@@ -657,42 +657,53 @@ class TestDbSource:
 
     # --- Appended from tests/test_source.py (root) ---
 
-    def test_streaming_large_dsv_file_creation(self) -> None:
-        """Test that streaming can handle large DSV files (>5000 lines)."""
-        # Create DSV source
-        from splurge_data_profiler.source import DsvSource
+def test_streaming_large_dsv_file_creation(tmp_path: Path) -> None:
+    """Test that streaming can handle large DSV files (>5000 lines)."""
+    from splurge_data_profiler.source import DsvSource
 
-        dsv_source = DsvSource(self.test_file_path)
+    # Create a large CSV file under tmp_path (smaller than class variant for speed)
+    test_file = tmp_path / "large.csv"
+    with open(test_file, "w", encoding="utf-8", newline="") as f:
+        f.write("id,name,email,age,city,salary,department,hire_date\n")
+        for i in range(1, 5001):
+            f.write(
+                f"{i},Employee_{i:04d},employee_{i:04d}@company.com,25,City,50000,Engineering,2023-01-01\n"
+            )
 
-        # Verify the source was created correctly
-        assert len(dsv_source.columns) == 8
-        expected_columns = ["id", "name", "email", "age", "city", "salary", "department", "hire_date"]
-        actual_columns = [col.name for col in dsv_source.columns]
-        assert actual_columns == expected_columns
+    dsv_source = DsvSource(test_file)
 
-        # Create data lake using streaming
-        data_lake = DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=self.data_lake_path)
+    # Verify the source was created correctly
+    assert len(dsv_source.columns) == 8
+    expected_columns = ["id", "name", "email", "age", "city", "salary", "department", "hire_date"]
+    actual_columns = [col.name for col in dsv_source.columns]
+    assert actual_columns == expected_columns
 
-        # Verify the data lake was created
-        assert isinstance(data_lake, DataLake)
-        assert isinstance(data_lake.db_source, DbSource)
+    # Create data lake using streaming
+    data_lake_path = tmp_path / "data_lake"
+    data_lake_path.mkdir()
 
-        # Verify the SQLite file was created
-        expected_db_path = self.data_lake_path / f"{self.test_file_path.stem}.sqlite"
-        assert expected_db_path.exists()
+    data_lake = DataLakeFactory.from_dsv_source(dsv_source=dsv_source, data_lake_path=data_lake_path)
 
-        # Verify the database URL is correct
-        expected_db_url = f"sqlite:///{expected_db_path}"
-        assert data_lake.db_url == expected_db_url
+    # Verify the data lake was created
+    assert isinstance(data_lake, DataLake)
+    assert isinstance(data_lake.db_source, DbSource)
 
-        # Verify the table name is correct
-        expected_table_name = self.test_file_path.stem
-        assert data_lake.db_table == expected_table_name
+    # Verify the SQLite file was created
+    expected_db_path = data_lake_path / f"{test_file.stem}.sqlite"
+    assert expected_db_path.exists()
 
-        # Skip schema assertion for SQLite
-        if "sqlite" not in data_lake.db_url:
-            assert data_lake.db_schema is None
+    # Verify the database URL is correct
+    expected_db_url = f"sqlite:///{expected_db_path}"
+    assert data_lake.db_url == expected_db_url
 
-        # Verify the column names are preserved
-        assert data_lake.column_names == expected_columns
+    # Verify the table name is correct
+    expected_table_name = test_file.stem
+    assert data_lake.db_table == expected_table_name
+
+    # Skip schema assertion for SQLite
+    if "sqlite" not in data_lake.db_url:
+        assert data_lake.db_schema is None
+
+    # Verify the column names are preserved
+    assert data_lake.column_names == expected_columns
 
